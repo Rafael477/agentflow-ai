@@ -5,8 +5,35 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { workspace as mockWorkspace } from "@/lib/mock-data";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUserWorkspace } from "@/lib/workspace";
 
-export default function DashboardPage() {
+async function getDashboardStats() {
+  try {
+    const workspace = await getCurrentUserWorkspace();
+    if (!workspace) return { credits: mockWorkspace.credits, creditUsage: 6, contacts: 48, appointments: 23, conversations: 186 };
+    const [creditUsage, contacts, appointments, conversations] = await Promise.all([
+      prisma.creditTransaction.aggregate({ where: { workspaceId: workspace.id, type: "usage" }, _sum: { amount: true } }),
+      prisma.contact.count({ where: { workspaceId: workspace.id } }),
+      prisma.appointment.count({ where: { workspaceId: workspace.id } }),
+      prisma.conversation.count({ where: { workspaceId: workspace.id } })
+    ]);
+    return {
+      credits: workspace.credits,
+      creditUsage: Math.abs(creditUsage._sum.amount ?? 0),
+      contacts,
+      appointments,
+      conversations
+    };
+  } catch {
+    return { credits: mockWorkspace.credits, creditUsage: 6, contacts: 48, appointments: 23, conversations: 186 };
+  }
+}
+
+export default async function DashboardPage() {
+  const stats = await getDashboardStats();
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -15,10 +42,10 @@ export default function DashboardPage() {
         actions={<><Button>Visão Geral</Button><Button variant="secondary">Atendimento</Button><Button variant="secondary">Filtros</Button></>}
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Atendimentos Concluídos" value="186" change="+12%" icon={MessageCircle} />
-        <StatCard title="Créditos Gastos" value="6" change="+4%" icon={CreditCard} />
-        <StatCard title="Novos Contatos" value="48" change="+18%" icon={UserPlus} />
-        <StatCard title="Total de Agendamentos" value="23" change="-3%" icon={CalendarClock} />
+        <StatCard title="Atendimentos Concluídos" value={String(stats.conversations)} change="+12%" icon={MessageCircle} />
+        <StatCard title="Créditos Gastos" value={String(stats.creditUsage)} change="+4%" icon={CreditCard} />
+        <StatCard title="Novos Contatos" value={String(stats.contacts)} change="+18%" icon={UserPlus} />
+        <StatCard title="Total de Agendamentos" value={String(stats.appointments)} change="-3%" icon={CalendarClock} />
       </div>
       <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
         <div className="grid gap-4 lg:grid-cols-2">
@@ -34,7 +61,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="font-medium text-white">GPT-5 Mini</p>
-                <p className="text-sm text-slate-400">6 créditos</p>
+                <p className="text-sm text-slate-400">{stats.creditUsage} créditos</p>
               </div>
               <Badge className="border-primary/30 bg-primary/10 text-primary">100%</Badge>
             </div>

@@ -1,19 +1,25 @@
-"use client";
+import { ChannelsClient } from "@/components/channels/channels-client";
+import { mapChannel } from "@/lib/mappers";
+import { channels as mockChannels } from "@/lib/mock-data";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUserWorkspace } from "@/lib/workspace";
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { ChannelTable } from "@/components/channels/channel-table";
-import { NewChannelModal } from "@/components/channels/new-channel-modal";
-import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
+async function getChannels() {
+  try {
+    const workspace = await getCurrentUserWorkspace();
+    if (!workspace) return mockChannels;
+    const channels = await prisma.channel.findMany({
+      where: { workspaceId: workspace.id },
+      include: { agent: { select: { name: true } } },
+      orderBy: { createdAt: "desc" }
+    });
+    return channels.map(mapChannel);
+  } catch {
+    return mockChannels;
+  }
+}
 
-export default function ChannelsPage() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Canais" subtitle="Conecte seus canais de atendimento" actions={<Button onClick={() => setOpen(true)}><Plus className="mr-2 h-4 w-4" />Novo canal</Button>} />
-      <ChannelTable />
-      <NewChannelModal open={open} onClose={() => setOpen(false)} />
-    </div>
-  );
+export default async function ChannelsPage() {
+  const channels = await getChannels();
+  return <ChannelsClient channels={channels} />;
 }

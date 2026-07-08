@@ -21,6 +21,27 @@ npm run db:seed
 
 O seed cria o usuário Rafael, workspace "Meu Workspace", agente "Jéssica Helen", canal "Estúdio JH", contatos, mensagens e créditos iniciais.
 
+Credenciais do seed:
+
+```txt
+E-mail: rafael@agentflow.local
+Senha: 123456
+```
+
+Para produção, configure no Vercel:
+
+```env
+DATABASE_URL="postgresql://..."
+NEXTAUTH_SECRET="gere-um-secret-forte"
+NEXTAUTH_URL="https://seu-dominio.vercel.app"
+```
+
+Depois aplique a migration versionada:
+
+```bash
+npx prisma migrate deploy
+```
+
 ## Desenvolvimento
 
 ```bash
@@ -38,3 +59,11 @@ npm run build
 ## Integrações futuras
 
 Os serviços em `src/services` deixam preparada a evolução para OpenAI, OpenRouter, Groq, Anthropic, Gemini, WhatsApp Meta oficial e WhatsApp Web via QR Code.
+
+## Funcionalidades persistentes
+
+- Login com NextAuth Credentials e Prisma Adapter.
+- Cadastro criando usuário, workspace padrão, membro dono e agente inicial.
+- APIs REST para agentes, canais e contatos.
+- Envio de mensagem com resposta mockada, persistência em `Message`, consumo de crédito e registro em `CreditTransaction`.
+- Endpoint SSE em `/api/chat/stream` preparado para eventos em tempo real.

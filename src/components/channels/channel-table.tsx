@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { MoreVertical, Plug, Settings, Trash2 } from "lucide-react";
-import { channels } from "@/lib/mock-data";
+import type { Channel } from "@/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChannelSettingsModal } from "@/components/channels/channel-settings-modal";
 import { ConnectChannelModal } from "@/components/channels/connect-channel-modal";
 
-export function ChannelTable() {
+export function ChannelTable({ channels }: { channels: Channel[] }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
 

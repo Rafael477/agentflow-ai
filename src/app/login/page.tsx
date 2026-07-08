@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Bot } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { LoginForm } from "@/components/forms/login-form";
 import { Card } from "@/components/ui/card";
 
 export default function LoginPage() {
@@ -13,9 +13,7 @@ export default function LoginPage() {
           <p className="text-sm text-slate-400">Acesse seu workspace e monitore seus agentes.</p>
         </div>
         <div className="grid gap-3">
-          <input className="rounded-xl border border-white/10 bg-panel p-3 outline-none" placeholder="E-mail" defaultValue="rafael@agentflow.local" />
-          <input className="rounded-xl border border-white/10 bg-panel p-3 outline-none" placeholder="Senha" type="password" defaultValue="123456" />
-          <Link href="/dashboard"><Button className="w-full">Entrar</Button></Link>
+          <LoginForm />
           <Link className="text-center text-sm text-primary" href="/register">Criar uma conta</Link>
         </div>
       </Card>

@@ -1,10 +1,10 @@
 import { Download, Filter, Tags } from "lucide-react";
-import { contacts } from "@/lib/mock-data";
+import type { Contact } from "@/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-export function ContactTable() {
+export function ContactTable({ contacts }: { contacts: Contact[] }) {
   return (
     <Card className="p-0">
       <div className="flex flex-col gap-3 border-b border-white/10 p-4 md:flex-row md:items-center">
