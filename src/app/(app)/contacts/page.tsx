@@ -1,7 +1,4 @@
-import { Plus } from "lucide-react";
-import { ContactTable } from "@/components/contacts/contact-table";
-import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
+import { ContactsClient } from "@/components/contacts/contacts-client";
 import { mapContact } from "@/lib/mappers";
 import { contacts as mockContacts } from "@/lib/mock-data";
 import { prisma } from "@/lib/prisma";
@@ -25,10 +22,5 @@ async function getContacts() {
 export default async function ContactsPage() {
   const contacts = await getContacts();
 
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Contatos" subtitle="Listagem dos contatos da sua conta" actions={<Button><Plus className="mr-2 h-4 w-4" />Criar contato</Button>} />
-      <ContactTable contacts={contacts} />
-    </div>
-  );
+  return <ContactsClient contacts={contacts} />;
 }
