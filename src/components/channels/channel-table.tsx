@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { MoreVertical, Plug, Settings, Trash2 } from "lucide-react";
+import { Plug, Settings } from "lucide-react";
 import type { Channel } from "@/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChannelSettingsModal } from "@/components/channels/channel-settings-modal";
 import { ConnectChannelModal } from "@/components/channels/connect-channel-modal";
+import { ChannelRowActions } from "@/components/channels/channel-row-actions";
 
 export function ChannelTable({ channels }: { channels: Channel[] }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -40,8 +41,7 @@ export function ChannelTable({ channels }: { channels: Channel[] }) {
                     <div className="flex gap-2">
                       <Button variant="secondary" onClick={() => setConnectOpen(true)}><Plug className="mr-2 h-4 w-4" />Conectar</Button>
                       <Button variant="ghost" onClick={() => setSettingsOpen(true)}><Settings className="mr-2 h-4 w-4" />Configurações</Button>
-                      <Button variant="danger"><Trash2 className="h-4 w-4" /></Button>
-                      <Button variant="ghost" className="px-3"><MoreVertical className="h-4 w-4" /></Button>
+                      <ChannelRowActions channel={channel} />
                     </div>
                   </td>
                 </tr>

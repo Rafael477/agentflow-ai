@@ -3,6 +3,7 @@ import type { Contact } from "@/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ContactRowActions } from "@/components/contacts/contact-row-actions";
 
 export function ContactTable({ contacts }: { contacts: Contact[] }) {
   return (
@@ -33,7 +34,7 @@ export function ContactTable({ contacts }: { contacts: Contact[] }) {
                 <td className="px-5 py-4"><div className="flex flex-wrap gap-1">{contact.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}</div></td>
                 <td className="px-5 py-4 text-slate-400">{contact.lastService}</td>
                 <td className="px-5 py-4"><Badge className="border-primary/30 bg-primary/10 text-primary">{contact.status}</Badge></td>
-                <td className="px-5 py-4"><Button variant="ghost">Editar</Button></td>
+                <td className="px-5 py-4"><ContactRowActions contact={contact} /></td>
               </tr>
             ))}
           </tbody>
