@@ -1,0 +1,330 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AgentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ChannelStatus {
+  CONNECTED
+  DISCONNECTED
+  PENDING
+}
+
+enum MessageSender {
+  CUSTOMER
+  AGENT
+  HUMAN
+  SYSTEM
+}
+
+enum CreditTransactionType {
+  usage
+  purchase
+  bonus
+}
+
+model User {
+  id          String       @id @default(cuid())
+  name        String
+  email       String       @unique
+  password    String?
+  image       String?
+  workspaces  Workspace[]
+  teamMembers TeamMember[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Workspace {
+  id                 String              @id @default(cuid())
+  name               String
+  ownerId            String
+  owner              User                @relation(fields: [ownerId], references: [id])
+  credits            Int                 @default(0)
+  agents             Agent[]
+  channels           Channel[]
+  contacts           Contact[]
+  teamMembers        TeamMember[]
+  integrations       Integration[]
+  apiKeys            ApiKey[]
+  creditTransactions CreditTransaction[]
+  appointments       Appointment[]
+  knowledgeBases     KnowledgeBase[]
+  templates          WhatsappTemplate[]
+  tags               Tag[]
+  conversations      Conversation[]
+  billingPlanId      String?
+  billingPlan        BillingPlan?        @relation(fields: [billingPlanId], references: [id])
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model Agent {
+  id                 String              @id @default(cuid())
+  workspaceId        String
+  workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name               String
+  description        String
+  model              String              @default("GPT-5 Mini")
+  status             AgentStatus         @default(ACTIVE)
+  communicationStyle String              @default("Descontraida")
+  behavior           String              @db.Text
+  trainings          AgentTraining[]
+  intents            AgentIntent[]
+  channels           Channel[]
+  conversations      Conversation[]
+  integrations       Integration[]
+  creditTransactions CreditTransaction[]
+  appointments       Appointment[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model AgentTraining {
+  id        String   @id @default(cuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  title     String
+  type      String
+  content   String   @db.Text
+  status    String   @default("trained")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AgentIntent {
+  id          String   @id @default(cuid())
+  agentId     String
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  name        String
+  description String
+  triggers    String[]
+  action      String
+  webhookUrl  String?
+  method      String?
+  headers     Json?
+  body        Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Channel {
+  id           String         @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agentId      String?
+  agent        Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  config       ChannelConfig?
+  name         String
+  type         String
+  identifier   String?
+  department   String         @default("Geral")
+  status       ChannelStatus  @default(DISCONNECTED)
+  conversations Conversation[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model ChannelConfig {
+  id                  String   @id @default(cuid())
+  channelId           String   @unique
+  channel             Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  typingIndicator     Boolean  @default(true)
+  autoRead            Boolean  @default(true)
+  audioProcessing     String   @default("Responder")
+  agentActivation     String   @default("Sempre responder")
+  phoneNumberId       String?
+  wabaId              String?
+  accessToken         String?
+  verifyToken         String?
+  webhookUrl          String?
+  sessionId           String?
+  qrCode              String?
+  connectedAt         DateTime?
+  disconnectedAt      DateTime?
+  settings            Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Conversation {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channelId   String?
+  channel     Channel?  @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  agentId     String?
+  agent       Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  contactId   String?
+  contact     Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  status      String    @default("open")
+  assignedTo  String?
+  messages    Message[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         MessageSender
+  content        String        @db.Text
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Contact {
+  id            String         @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name          String
+  phone         String?
+  email         String?
+  channel       String?
+  status        String         @default("new")
+  tags          Tag[]
+  conversations Conversation[]
+  appointments  Appointment[]
+  customFields  Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Tag {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  color       String
+  contacts    Contact[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model TeamMember {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name        String
+  email       String
+  role        String
+  permission  String
+  status      String    @default("active")
+  lastAccess  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Integration {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agentId     String?
+  agent       Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  name        String
+  provider    String
+  status      String    @default("inactive")
+  config      Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  keyHash     String
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model BillingPlan {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  priceCents  Int
+  agentsLimit Int?
+  channelsLimit Int?
+  credits     Int
+  workspaces  Workspace[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model CreditTransaction {
+  id          String                @id @default(cuid())
+  workspaceId String
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agentId     String?
+  agent       Agent?                @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  amount      Int
+  type        CreditTransactionType
+  description String
+  createdAt   DateTime              @default(now())
+}
+
+model Appointment {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contactId   String?
+  contact     Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  agentId     String?
+  agent       Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  service     String
+  date        DateTime
+  status      String
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model KnowledgeBase {
+  id          String          @id @default(cuid())
+  workspaceId String
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  items       KnowledgeItem[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model KnowledgeItem {
+  id              String        @id @default(cuid())
+  knowledgeBaseId String
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  category        String
+  question        String
+  answer          String        @db.Text
+  status          String        @default("trained")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model WhatsappTemplate {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  category    String
+  language    String
+  body        String    @db.Text
+  variables   String[]
+  status      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

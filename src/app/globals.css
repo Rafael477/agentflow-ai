@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #171827;
+  color: #f8fafc;
+}
+
+::selection {
+  background: rgba(168, 85, 247, 0.35);
+}
+
+.glass-panel {
+  background: linear-gradient(180deg, rgba(42, 43, 64, 0.92), rgba(32, 33, 51, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
