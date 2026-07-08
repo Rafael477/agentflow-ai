@@ -38,3 +38,13 @@ export interface Message {
   content: string;
   time: string;
 }
+
+export interface ConversationSummary {
+  id: string;
+  contactName: string;
+  channelName: string;
+  agentName: string;
+  status: string;
+  lastMessage: string;
+  messages: Message[];
+}

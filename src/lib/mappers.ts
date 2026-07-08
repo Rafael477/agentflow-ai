@@ -1,5 +1,5 @@
-import type { Agent as PrismaAgent, Channel as PrismaChannel, Contact as PrismaContact, Tag } from "@prisma/client";
-import type { Agent, Channel, Contact } from "@/types/domain";
+import type { Agent as PrismaAgent, Channel as PrismaChannel, Contact as PrismaContact, Conversation, Message as PrismaMessage, Tag } from "@prisma/client";
+import type { Agent, Channel, Contact, ConversationSummary, Message } from "@/types/domain";
 
 export function mapAgent(agent: PrismaAgent): Agent {
   return {
@@ -34,5 +34,37 @@ export function mapContact(contact: PrismaContact & { tags?: Tag[] }): Contact {
     tags: contact.tags?.map((tag) => tag.name) ?? [],
     lastService: "Agora",
     status: contact.status
+  };
+}
+
+export function mapMessage(message: PrismaMessage): Message {
+  return {
+    id: message.id,
+    author: message.sender === "CUSTOMER" ? "Cliente" : "Agente",
+    content: message.content,
+    time: new Intl.DateTimeFormat("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(message.createdAt)
+  };
+}
+
+export function mapConversation(
+  conversation: Conversation & {
+    contact?: { name: string } | null;
+    channel?: { name: string } | null;
+    agent?: { name: string } | null;
+    messages: PrismaMessage[];
+  }
+): ConversationSummary {
+  const messages = conversation.messages.map(mapMessage);
+  return {
+    id: conversation.id,
+    contactName: conversation.contact?.name ?? "Contato sem nome",
+    channelName: conversation.channel?.name ?? "Canal não definido",
+    agentName: conversation.agent?.name ?? "Agente não definido",
+    status: conversation.status,
+    lastMessage: messages.at(-1)?.content ?? "Sem mensagens ainda",
+    messages
   };
 }

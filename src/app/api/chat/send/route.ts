@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { generateAgentAnswer } from "@/services/ai/agent-runtime";
+import { mapMessage } from "@/lib/mappers";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserWorkspace } from "@/lib/workspace";
 
@@ -64,5 +65,14 @@ export async function POST(request: Request) {
     }
   });
 
-  return NextResponse.json({ customerMessage, agentMessage, creditsUsed: result.creditsUsed });
+  await prisma.conversation.update({
+    where: { id: conversation.id },
+    data: { updatedAt: new Date() }
+  });
+
+  return NextResponse.json({
+    customerMessage: mapMessage(customerMessage),
+    agentMessage: mapMessage(agentMessage),
+    creditsUsed: result.creditsUsed
+  });
 }
