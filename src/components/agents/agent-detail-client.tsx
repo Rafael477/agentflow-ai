@@ -152,6 +152,7 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
   const [intentForm, setIntentForm] = useState({ name: "", description: "", triggers: "", action: "", webhookUrl: "" });
   const [pendingTrainingFiles, setPendingTrainingFiles] = useState<File[]>([]);
   const [trainingPreviews, setTrainingPreviews] = useState<TrainingPreview[]>([]);
+  const [editingPreviewKeys, setEditingPreviewKeys] = useState<string[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [deletingTraining, setDeletingTraining] = useState<string | null>(null);
   const [deletingIntent, setDeletingIntent] = useState<string | null>(null);
@@ -273,6 +274,7 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
     setPreviewOpen(false);
     setPendingTrainingFiles([]);
     setTrainingPreviews([]);
+    setEditingPreviewKeys([]);
     setNotice("Arquivo confirmado e adicionado ao treinamento do agente.");
     router.refresh();
   }
@@ -281,6 +283,21 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
     setPreviewOpen(false);
     setPendingTrainingFiles([]);
     setTrainingPreviews([]);
+    setEditingPreviewKeys([]);
+  }
+
+  function togglePreviewEdit(preview: TrainingPreview) {
+    const key = `${preview.fileName}:${preview.fileSizeBytes}`;
+    setEditingPreviewKeys((current) => (
+      current.includes(key) ? current.filter((item) => item !== key) : [...current, key]
+    ));
+  }
+
+  function updatePreviewContent(preview: TrainingPreview, content: string) {
+    const key = `${preview.fileName}:${preview.fileSizeBytes}`;
+    setTrainingPreviews((current) => current.map((item) => (
+      `${item.fileName}:${item.fileSizeBytes}` === key ? { ...item, content } : item
+    )));
   }
 
   async function attachKnowledgeBase() {
@@ -495,14 +512,25 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
       <Modal open={previewOpen} onClose={cancelTrainingPreview} title="Prévia do treinamento">
         <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">
           {trainingPreviews.map((preview) => (
-            <div key={preview.fileName} className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div key={`${preview.fileName}:${preview.fileSizeBytes}`} className="rounded-xl border border-white/10 bg-white/5 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{preview.title}</p>
                 <Badge>{preview.type}</Badge>
                 <Badge>{formatFileSize(preview.fileSizeBytes)}</Badge>
+                <Button variant="secondary" className="px-3 py-1 text-xs" onClick={() => togglePreviewEdit(preview)}>
+                  {editingPreviewKeys.includes(`${preview.fileName}:${preview.fileSizeBytes}`) ? "Concluir edição" : "Editar conteúdo"}
+                </Button>
               </div>
               <p className="mt-2 text-xs text-slate-400">{preview.fileMimeType}</p>
-              <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950/70 p-3 text-xs leading-relaxed text-slate-200">{preview.content}</pre>
+              {editingPreviewKeys.includes(`${preview.fileName}:${preview.fileSizeBytes}`) ? (
+                <textarea
+                  className="mt-3 min-h-72 w-full rounded-lg border border-white/10 bg-slate-950/70 p-3 text-xs leading-relaxed text-slate-200 outline-none focus:border-primary/60"
+                  value={preview.content}
+                  onChange={(event) => updatePreviewContent(preview, event.target.value)}
+                />
+              ) : (
+                <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950/70 p-3 text-xs leading-relaxed text-slate-200">{preview.content}</pre>
+              )}
             </div>
           ))}
           <div className="flex flex-wrap justify-end gap-2">
