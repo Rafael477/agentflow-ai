@@ -58,6 +58,8 @@ export function mapConversation(
   }
 ): ConversationSummary {
   const messages = conversation.messages.map(mapMessage);
+  const lastMessage = conversation.messages.at(-1);
+
   return {
     id: conversation.id,
     contactName: conversation.contact?.name ?? "Contato sem nome",
@@ -65,7 +67,9 @@ export function mapConversation(
     agentName: conversation.agent?.name ?? "Agente não definido",
     status: conversation.status,
     assignedTo: conversation.assignedTo ?? undefined,
-    lastMessage: messages.at(-1)?.content ?? "Sem mensagens ainda",
+    lastMessage: lastMessage?.content ?? "Sem mensagens ainda",
+    lastMessageAt: lastMessage?.createdAt.toISOString(),
+    updatedAt: conversation.updatedAt.toISOString(),
     messages
   };
 }

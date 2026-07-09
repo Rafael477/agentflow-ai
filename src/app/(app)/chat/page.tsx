@@ -29,6 +29,8 @@ function getMockConversations(): ConversationSummary[] {
       agentName: "Jéssica Helen",
       status: "open",
       lastMessage: mockMessages.at(-1)?.content ?? "Sem mensagens",
+      lastMessageAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       messages: mockMessages
     }
   ];

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Send, SlidersHorizontal, UserCheck, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ConversationList } from "@/components/chat/conversation-list";
+import { ConversationList, type ConversationSla } from "@/components/chat/conversation-list";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import type { ConversationSummary, Message } from "@/types/domain";
 
@@ -39,6 +39,51 @@ const filterLabels: Record<ConversationFilter, string> = {
   mine: "Meus"
 };
 
+const slaWeights: Record<ConversationSla["level"], number> = {
+  critical: 4,
+  urgent: 3,
+  warning: 2,
+  normal: 1
+};
+
+function getConversationTimestamp(conversation: ConversationSummary): number {
+  return new Date(conversation.lastMessageAt ?? conversation.updatedAt).getTime();
+}
+
+function formatWaitingTime(minutes: number): string {
+  if (minutes < 1) return "Agora";
+  if (minutes < 60) return `${minutes} min`;
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}min` : `${hours}h`;
+}
+
+function getConversationSla(conversation: ConversationSummary): ConversationSla {
+  if (conversation.status === "resolved" || conversation.status === "closed") {
+    return { label: "Concluído", level: "normal", minutesWaiting: 0 };
+  }
+
+  const timestamp = getConversationTimestamp(conversation);
+  const minutesWaiting = Number.isFinite(timestamp)
+    ? Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
+    : 0;
+
+  if (minutesWaiting >= 60) {
+    return { label: `Crítico ${formatWaitingTime(minutesWaiting)}`, level: "critical", minutesWaiting };
+  }
+
+  if (minutesWaiting >= 30) {
+    return { label: `Urgente ${formatWaitingTime(minutesWaiting)}`, level: "urgent", minutesWaiting };
+  }
+
+  if (minutesWaiting >= 10) {
+    return { label: `Atenção ${formatWaitingTime(minutesWaiting)}`, level: "warning", minutesWaiting };
+  }
+
+  return { label: `SLA ${formatWaitingTime(minutesWaiting)}`, level: "normal", minutesWaiting };
+}
+
 export function ChatLayout({
   conversations,
   currentUserName,
@@ -57,6 +102,7 @@ export function ChatLayout({
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState("");
+  const [slaTick, setSlaTick] = useState(0);
 
   const currentAssignees = useMemo(
     () => [currentUserName, currentUserEmail].filter((value): value is string => Boolean(value?.trim())),
@@ -84,6 +130,11 @@ export function ChatLayout({
   }, []);
 
   useEffect(() => {
+    const interval = setInterval(() => setSlaTick((current) => current + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     if (!selectedId && liveConversations[0]?.id) {
       setSelectedId(liveConversations[0].id);
     }
@@ -103,6 +154,7 @@ export function ChatLayout({
   }, [currentAssignees, liveConversations]);
 
   const filteredConversations = useMemo(() => {
+    void slaTick;
     const normalizedSearch = searchQuery.trim().toLowerCase();
 
     return liveConversations.filter((conversation) => {
@@ -126,8 +178,18 @@ export function ChatLayout({
         conversation.lastMessage,
         statusLabels[conversation.status] ?? conversation.status
       ].some((value) => value?.toLowerCase().includes(normalizedSearch));
+    }).sort((first, second) => {
+      const firstSla = getConversationSla(first);
+      const secondSla = getConversationSla(second);
+      const slaDiff = slaWeights[secondSla.level] - slaWeights[firstSla.level];
+      if (slaDiff !== 0) return slaDiff;
+
+      const waitingDiff = secondSla.minutesWaiting - firstSla.minutesWaiting;
+      if (waitingDiff !== 0) return waitingDiff;
+
+      return getConversationTimestamp(second) - getConversationTimestamp(first);
     });
-  }, [activeFilter, currentAssignees, liveConversations, searchQuery]);
+  }, [activeFilter, currentAssignees, liveConversations, searchQuery, slaTick]);
 
   useEffect(() => {
     if (filteredConversations.length === 0) {
@@ -172,6 +234,8 @@ export function ChatLayout({
     updateConversation(selectedConversation.id, (conversation) => ({
       ...conversation,
       lastMessage: content,
+      lastMessageAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       messages: [...conversation.messages, optimisticMessage]
     }));
 
@@ -193,6 +257,8 @@ export function ChatLayout({
     updateConversation(selectedConversation.id, (conversation) => ({
       ...conversation,
       lastMessage: result.agentMessage.content,
+      lastMessageAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       messages: [
         ...conversation.messages.filter((message) => message.id !== optimisticMessage.id),
         result.customerMessage,
@@ -249,7 +315,7 @@ export function ChatLayout({
             </button>
           ))}
         </div>
-        <ConversationList conversations={filteredConversations} selectedId={selectedConversation?.id} onSelect={setSelectedId} />
+        <ConversationList conversations={filteredConversations} selectedId={selectedConversation?.id} onSelect={setSelectedId} getSla={getConversationSla} />
       </Card>
       <Card className="flex min-h-[660px] flex-col p-0">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-4">
@@ -265,8 +331,9 @@ export function ChatLayout({
           </div>
         </div>
         {selectedConversation ? (
-          <div className="border-b border-white/10 px-4 py-2 text-xs text-slate-400">
-            Status: <span className="font-semibold text-white">{statusLabels[selectedConversation.status] ?? selectedConversation.status}</span>
+          <div className="flex flex-wrap items-center gap-3 border-b border-white/10 px-4 py-2 text-xs text-slate-400">
+            <span>Status: <span className="font-semibold text-white">{statusLabels[selectedConversation.status] ?? selectedConversation.status}</span></span>
+            <span>Tempo de espera: <span className="font-semibold text-white">{getConversationSla(selectedConversation).label}</span></span>
           </div>
         ) : null}
         <div className="flex-1 space-y-4 overflow-y-auto p-4">

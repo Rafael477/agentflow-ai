@@ -47,5 +47,7 @@ export interface ConversationSummary {
   status: string;
   assignedTo?: string;
   lastMessage: string;
+  lastMessageAt?: string;
+  updatedAt: string;
   messages: Message[];
 }
