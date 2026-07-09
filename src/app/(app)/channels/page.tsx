@@ -10,7 +10,7 @@ async function getChannels() {
     if (!workspace) return mockChannels;
     const channels = await prisma.channel.findMany({
       where: { workspaceId: workspace.id },
-      include: { agent: { select: { name: true } } },
+      include: { agent: { select: { name: true } }, config: { select: { settings: true } } },
       orderBy: { createdAt: "desc" }
     });
     return channels.map(mapChannel);

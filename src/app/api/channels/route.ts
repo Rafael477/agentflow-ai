@@ -17,7 +17,7 @@ export async function GET() {
 
   const channels = await prisma.channel.findMany({
     where: { workspaceId: workspace.id },
-    include: { agent: { select: { name: true } } },
+    include: { agent: { select: { name: true } }, config: { select: { settings: true } } },
     orderBy: { createdAt: "desc" }
   });
 
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       department: payload.data.department,
       config: { create: { sessionId: `session-${Date.now()}`, qrCode: `agentflow-qr-${Date.now()}` } }
     },
-    include: { agent: { select: { name: true } } }
+    include: { agent: { select: { name: true } }, config: { select: { settings: true } } }
   });
 
   return NextResponse.json({ channel: mapChannel(channel) }, { status: 201 });

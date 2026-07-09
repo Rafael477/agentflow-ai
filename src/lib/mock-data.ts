@@ -1,4 +1,5 @@
 import { Bot, CalendarClock, CreditCard, KeyRound, MessageCircle, Settings, Tags, Users } from "lucide-react";
+import { DEFAULT_SLA_THRESHOLDS } from "@/lib/sla";
 import type { Agent, Channel, Contact, Message, Permission } from "@/types/domain";
 
 export const workspace = {
@@ -29,7 +30,8 @@ export const channels: Channel[] = [
     agent: "Jéssica Helen",
     identifier: "Não definido",
     department: "Geral",
-    status: "disconnected"
+    status: "disconnected",
+    slaThresholds: DEFAULT_SLA_THRESHOLDS
   }
 ];
 

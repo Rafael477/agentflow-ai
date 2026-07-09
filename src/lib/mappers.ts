@@ -1,4 +1,5 @@
 import type { Agent as PrismaAgent, Channel as PrismaChannel, Contact as PrismaContact, Conversation, Message as PrismaMessage, Tag } from "@prisma/client";
+import { getSlaThresholdsFromSettings } from "@/lib/sla";
 import type { Agent, Channel, Contact, ConversationSummary, Message } from "@/types/domain";
 
 export function mapAgent(agent: PrismaAgent): Agent {
@@ -12,7 +13,7 @@ export function mapAgent(agent: PrismaAgent): Agent {
   };
 }
 
-export function mapChannel(channel: PrismaChannel & { agent?: { name: string } | null }): Channel {
+export function mapChannel(channel: PrismaChannel & { agent?: { name: string } | null; config?: { settings: unknown } | null }): Channel {
   return {
     id: channel.id,
     name: channel.name,
@@ -20,7 +21,8 @@ export function mapChannel(channel: PrismaChannel & { agent?: { name: string } |
     agent: channel.agent?.name ?? "Não definido",
     identifier: channel.identifier ?? "Não definido",
     department: channel.department,
-    status: channel.status === "CONNECTED" ? "connected" : "disconnected"
+    status: channel.status === "CONNECTED" ? "connected" : "disconnected",
+    slaThresholds: getSlaThresholdsFromSettings(channel.config?.settings)
   };
 }
 
@@ -52,7 +54,7 @@ export function mapMessage(message: PrismaMessage): Message {
 export function mapConversation(
   conversation: Conversation & {
     contact?: { name: string } | null;
-    channel?: { name: string } | null;
+    channel?: { name: string; department: string; config?: { settings: unknown } | null } | null;
     agent?: { name: string } | null;
     messages: PrismaMessage[];
   }
@@ -64,12 +66,14 @@ export function mapConversation(
     id: conversation.id,
     contactName: conversation.contact?.name ?? "Contato sem nome",
     channelName: conversation.channel?.name ?? "Canal não definido",
+    channelDepartment: conversation.channel?.department ?? "Geral",
     agentName: conversation.agent?.name ?? "Agente não definido",
     status: conversation.status,
     assignedTo: conversation.assignedTo ?? undefined,
     lastMessage: lastMessage?.content ?? "Sem mensagens ainda",
     lastMessageAt: lastMessage?.createdAt.toISOString(),
     updatedAt: conversation.updatedAt.toISOString(),
+    slaThresholds: getSlaThresholdsFromSettings(conversation.channel?.config?.settings),
     messages
   };
 }

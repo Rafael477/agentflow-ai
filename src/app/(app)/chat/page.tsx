@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { authOptions } from "@/lib/auth";
 import { getWorkspaceConversations } from "@/lib/chat-conversations";
 import { messages as mockMessages } from "@/lib/mock-data";
+import { DEFAULT_SLA_THRESHOLDS } from "@/lib/sla";
 import { getCurrentUserWorkspace } from "@/lib/workspace";
 import type { ConversationSummary } from "@/types/domain";
 
@@ -26,11 +27,13 @@ function getMockConversations(): ConversationSummary[] {
       id: "mock-conversation",
       contactName: "Rafael",
       channelName: "WhatsApp",
+      channelDepartment: "Geral",
       agentName: "Jéssica Helen",
       status: "open",
       lastMessage: mockMessages.at(-1)?.content ?? "Sem mensagens",
       lastMessageAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      slaThresholds: DEFAULT_SLA_THRESHOLDS,
       messages: mockMessages
     }
   ];

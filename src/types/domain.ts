@@ -2,6 +2,12 @@ export type AgentStatus = "active" | "inactive";
 export type ChannelStatus = "connected" | "disconnected";
 export type Permission = "Dono" | "Administrador" | "Atendente" | "Visualizador";
 
+export interface SlaThresholds {
+  warning: number;
+  urgent: number;
+  critical: number;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -19,6 +25,7 @@ export interface Channel {
   identifier: string;
   department: string;
   status: ChannelStatus;
+  slaThresholds: SlaThresholds;
 }
 
 export interface Contact {
@@ -43,11 +50,13 @@ export interface ConversationSummary {
   id: string;
   contactName: string;
   channelName: string;
+  channelDepartment: string;
   agentName: string;
   status: string;
   assignedTo?: string;
   lastMessage: string;
   lastMessageAt?: string;
   updatedAt: string;
+  slaThresholds: SlaThresholds;
   messages: Message[];
 }

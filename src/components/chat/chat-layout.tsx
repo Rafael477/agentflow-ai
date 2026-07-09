@@ -64,20 +64,21 @@ function getConversationSla(conversation: ConversationSummary): ConversationSla 
     return { label: "Concluído", level: "normal", minutesWaiting: 0 };
   }
 
+  const thresholds = conversation.slaThresholds;
   const timestamp = getConversationTimestamp(conversation);
   const minutesWaiting = Number.isFinite(timestamp)
     ? Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
     : 0;
 
-  if (minutesWaiting >= 60) {
+  if (minutesWaiting >= thresholds.critical) {
     return { label: `Crítico ${formatWaitingTime(minutesWaiting)}`, level: "critical", minutesWaiting };
   }
 
-  if (minutesWaiting >= 30) {
+  if (minutesWaiting >= thresholds.urgent) {
     return { label: `Urgente ${formatWaitingTime(minutesWaiting)}`, level: "urgent", minutesWaiting };
   }
 
-  if (minutesWaiting >= 10) {
+  if (minutesWaiting >= thresholds.warning) {
     return { label: `Atenção ${formatWaitingTime(minutesWaiting)}`, level: "warning", minutesWaiting };
   }
 
@@ -173,6 +174,7 @@ export function ChatLayout({
       return [
         conversation.contactName,
         conversation.channelName,
+        conversation.channelDepartment,
         conversation.agentName,
         conversation.assignedTo,
         conversation.lastMessage,
@@ -321,7 +323,7 @@ export function ChatLayout({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-4">
           <div>
             <p className="font-semibold text-white">{selectedConversation?.contactName ?? "Moderação de atendimentos"}</p>
-            <p className="text-xs text-slate-400">{selectedConversation ? `${selectedConversation.channelName} • ${selectedConversation.agentName}` : "Selecione uma conversa"}</p>
+            <p className="text-xs text-slate-400">{selectedConversation ? `${selectedConversation.channelName} • ${selectedConversation.channelDepartment} • ${selectedConversation.agentName}` : "Selecione uma conversa"}</p>
             {selectedConversation?.assignedTo ? <p className="mt-1 text-xs text-primary">Responsável: {selectedConversation.assignedTo}</p> : null}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -334,6 +336,7 @@ export function ChatLayout({
           <div className="flex flex-wrap items-center gap-3 border-b border-white/10 px-4 py-2 text-xs text-slate-400">
             <span>Status: <span className="font-semibold text-white">{statusLabels[selectedConversation.status] ?? selectedConversation.status}</span></span>
             <span>Tempo de espera: <span className="font-semibold text-white">{getConversationSla(selectedConversation).label}</span></span>
+            <span>SLA: <span className="font-semibold text-white">{selectedConversation.slaThresholds.warning}/{selectedConversation.slaThresholds.urgent}/{selectedConversation.slaThresholds.critical} min</span></span>
           </div>
         ) : null}
         <div className="flex-1 space-y-4 overflow-y-auto p-4">

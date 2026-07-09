@@ -7,7 +7,7 @@ export async function getWorkspaceConversations(workspaceId: string): Promise<Co
     where: { workspaceId },
     include: {
       contact: { select: { name: true } },
-      channel: { select: { name: true } },
+      channel: { select: { name: true, department: true, config: { select: { settings: true } } } },
       agent: { select: { name: true } },
       messages: { orderBy: { createdAt: "asc" } }
     },
@@ -21,7 +21,8 @@ export function createConversationSignature(conversations: ConversationSummary[]
   return conversations
     .map((conversation) => {
       const lastMessageId = conversation.messages.at(-1)?.id ?? "empty";
-      return `${conversation.id}:${conversation.status}:${conversation.assignedTo ?? ""}:${lastMessageId}:${conversation.messages.length}`;
+      const sla = conversation.slaThresholds;
+      return `${conversation.id}:${conversation.status}:${conversation.assignedTo ?? ""}:${lastMessageId}:${conversation.messages.length}:${sla.warning}:${sla.urgent}:${sla.critical}`;
     })
     .join("|");
 }

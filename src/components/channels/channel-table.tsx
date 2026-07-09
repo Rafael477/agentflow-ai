@@ -11,7 +11,7 @@ import { ConnectChannelModal } from "@/components/channels/connect-channel-modal
 import { ChannelRowActions } from "@/components/channels/channel-row-actions";
 
 export function ChannelTable({ channels }: { channels: Channel[] }) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsChannel, setSettingsChannel] = useState<Channel | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
 
   return (
@@ -40,7 +40,7 @@ export function ChannelTable({ channels }: { channels: Channel[] }) {
                   <td className="px-5 py-4">
                     <div className="flex gap-2">
                       <Button variant="secondary" onClick={() => setConnectOpen(true)}><Plug className="mr-2 h-4 w-4" />Conectar</Button>
-                      <Button variant="ghost" onClick={() => setSettingsOpen(true)}><Settings className="mr-2 h-4 w-4" />Configurações</Button>
+                      <Button variant="ghost" onClick={() => setSettingsChannel(channel)}><Settings className="mr-2 h-4 w-4" />Configurações</Button>
                       <ChannelRowActions channel={channel} />
                     </div>
                   </td>
@@ -50,7 +50,7 @@ export function ChannelTable({ channels }: { channels: Channel[] }) {
           </table>
         </div>
       </Card>
-      <ChannelSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ChannelSettingsModal channel={settingsChannel} open={Boolean(settingsChannel)} onClose={() => setSettingsChannel(null)} />
       <ConnectChannelModal open={connectOpen} onClose={() => setConnectOpen(false)} />
     </>
   );
