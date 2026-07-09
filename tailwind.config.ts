@@ -7,9 +7,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#171827",
-        card: "#202133",
-        panel: "#2A2B40",
+        background: "rgb(var(--color-background) / <alpha-value>)",
+        card: "rgb(var(--color-card) / <alpha-value>)",
+        panel: "rgb(var(--color-panel) / <alpha-value>)",
         primary: "#14B8A6",
         accent: "#A855F7",
         muted: "#9CA3AF"

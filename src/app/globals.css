@@ -4,6 +4,12 @@
 
 :root {
   color-scheme: dark;
+  --color-background: 23 24 39;
+  --color-card: 32 33 51;
+  --color-panel: 42 43 64;
+  --color-foreground: 248 250 252;
+  --color-muted: 148 163 184;
+  --color-border: 255 255 255;
 }
 
 * {
@@ -12,13 +18,18 @@
 
 body {
   margin: 0;
-  background: #171827;
-  color: #f8fafc;
+  background: rgb(var(--color-background));
+  color: rgb(var(--color-foreground));
 }
 
-:root[data-theme="light"] body {
-  background: #f4f7fb;
-  color: #0f172a;
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-background: 244 247 251;
+  --color-card: 255 255 255;
+  --color-panel: 238 243 248;
+  --color-foreground: 15 23 42;
+  --color-muted: 71 85 105;
+  --color-border: 203 213 225;
 }
 
 ::selection {
@@ -28,4 +39,34 @@ body {
 .glass-panel {
   background: linear-gradient(180deg, rgba(42, 43, 64, 0.92), rgba(32, 33, 51, 0.92));
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="light"] .glass-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(238, 243, 248, 0.96));
+  border-color: rgba(148, 163, 184, 0.28);
+  box-shadow: 0 18px 60px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme="light"] .text-white,
+:root[data-theme="light"] .text-slate-100,
+:root[data-theme="light"] .text-slate-200,
+:root[data-theme="light"] .text-slate-300 {
+  color: rgb(var(--color-foreground));
+}
+
+:root[data-theme="light"] .text-slate-400,
+:root[data-theme="light"] .text-slate-500 {
+  color: rgb(var(--color-muted));
+}
+
+:root[data-theme="light"] .border-white\/10 {
+  border-color: rgba(var(--color-border), 0.72);
+}
+
+:root[data-theme="light"] .bg-white\/5 {
+  background-color: rgba(15, 23, 42, 0.035);
+}
+
+:root[data-theme="light"] .hover\:bg-white\/10:hover {
+  background-color: rgba(15, 23, 42, 0.07);
 }
