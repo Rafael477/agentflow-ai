@@ -1,7 +1,9 @@
+import path from "node:path";
 import { put } from "@vercel/blob";
 import { createWorker } from "tesseract.js";
 
 const MAX_STORED_TEXT_LENGTH = 80_000;
+const OCR_TIMEOUT_MS = 25_000;
 
 export interface ParsedTrainingFile {
   title: string;
@@ -150,11 +152,25 @@ async function extractText(file: File, buffer: Buffer): Promise<string> {
 }
 
 async function extractImageText(buffer: Buffer): Promise<string> {
-  const worker = await createWorker("por+eng");
+  const worker = await createWorker("eng", 1, {
+    cachePath: "/tmp/tesseract-cache",
+    langPath: path.join(process.cwd(), "node_modules", "@tesseract.js-data", "eng", "4.0.0_best_int")
+  });
 
   try {
-    const result = await worker.recognize(buffer);
+    const result = await Promise.race([
+      worker.recognize(buffer),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("OCR_TIMEOUT")), OCR_TIMEOUT_MS);
+      })
+    ]);
     return result.data.text.trim() || "Nenhum texto foi reconhecido na imagem via OCR.";
+  } catch (error) {
+    if (error instanceof Error && error.message === "OCR_TIMEOUT") {
+      return "OCR demorou mais que o limite seguro para produção. O arquivo original foi preservado e pode ser reprocessado depois.";
+    }
+
+    throw error;
   } finally {
     await worker.terminate();
   }
