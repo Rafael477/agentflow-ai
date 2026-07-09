@@ -1,6 +1,4 @@
 import { put } from "@vercel/blob";
-import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
 
 const MAX_STORED_TEXT_LENGTH = 80_000;
 
@@ -36,6 +34,61 @@ function trimStoredText(value: string): string {
   return `${value.slice(0, MAX_STORED_TEXT_LENGTH)}\n\n[Conteúdo truncado para manter o banco leve. Consulte o arquivo original no storage externo.]`;
 }
 
+class ServerDOMMatrix {
+  a = 1;
+  b = 0;
+  c = 0;
+  d = 1;
+  e = 0;
+  f = 0;
+
+  multiplySelf() {
+    return this;
+  }
+
+  preMultiplySelf() {
+    return this;
+  }
+
+  translateSelf() {
+    return this;
+  }
+
+  scaleSelf() {
+    return this;
+  }
+
+  rotateSelf() {
+    return this;
+  }
+
+  invertSelf() {
+    return this;
+  }
+}
+
+class ServerImageData {
+  constructor(
+    public data: Uint8ClampedArray,
+    public width: number,
+    public height: number
+  ) {}
+}
+
+class ServerPath2D {}
+
+function ensurePdfServerGlobals() {
+  const serverGlobal = globalThis as unknown as {
+    DOMMatrix?: typeof ServerDOMMatrix;
+    ImageData?: typeof ServerImageData;
+    Path2D?: typeof ServerPath2D;
+  };
+
+  serverGlobal.DOMMatrix ??= ServerDOMMatrix;
+  serverGlobal.ImageData ??= ServerImageData;
+  serverGlobal.Path2D ??= ServerPath2D;
+}
+
 async function uploadToBlob(file: File, buffer: Buffer): Promise<string | null> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
 
@@ -58,6 +111,8 @@ async function extractText(file: File, buffer: Buffer): Promise<string> {
   }
 
   if (file.type === "application/pdf" || extension === "pdf") {
+    ensurePdfServerGlobals();
+    const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: buffer });
     try {
       const parsed = await parser.getText();
@@ -68,6 +123,7 @@ async function extractText(file: File, buffer: Buffer): Promise<string> {
   }
 
   if (extension === "docx" || file.type.includes("wordprocessingml")) {
+    const mammoth = await import("mammoth");
     const parsed = await mammoth.extractRawText({ buffer });
     return parsed.value.trim();
   }
