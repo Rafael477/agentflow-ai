@@ -55,7 +55,12 @@ async function getAgent(id: string): Promise<AgentDetailView | null> {
         title: training.title,
         type: training.type,
         content: training.content,
-        status: training.status
+        status: training.status,
+        fileName: training.fileName,
+        fileMimeType: training.fileMimeType,
+        fileSizeBytes: training.fileSizeBytes,
+        fileUrl: training.fileUrl,
+        uploadedAt: training.uploadedAt?.toISOString() ?? null
       })),
       intents: agent.intents.map((intent) => ({
         id: intent.id,

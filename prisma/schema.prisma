@@ -126,15 +126,20 @@ model Agent {
 }
 
 model AgentTraining {
-  id        String   @id @default(cuid())
-  agentId   String
-  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  title     String
-  type      String
-  content   String   @db.Text
-  status    String   @default("trained")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  agentId       String
+  agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  title         String
+  type          String
+  content       String   @db.Text
+  status        String   @default("trained")
+  fileName      String?
+  fileMimeType  String?
+  fileSizeBytes Int?
+  fileUrl       String?
+  uploadedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model AgentIntent {

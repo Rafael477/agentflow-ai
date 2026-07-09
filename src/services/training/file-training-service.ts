@@ -8,6 +8,11 @@ export interface ParsedTrainingFile {
   title: string;
   type: string;
   content: string;
+  fileName: string;
+  fileMimeType: string;
+  fileSizeBytes: number;
+  fileUrl: string | null;
+  uploadedAt: Date;
 }
 
 function getFileExtension(fileName: string): string {
@@ -97,6 +102,11 @@ export async function parseTrainingFile(file: File): Promise<ParsedTrainingFile>
       "",
       "Conteúdo extraído:",
       extractedText || "Nenhum texto foi extraído deste arquivo."
-    ].join("\n"))
+    ].join("\n")),
+    fileName: file.name,
+    fileMimeType: file.type || "application/octet-stream",
+    fileSizeBytes: file.size,
+    fileUrl: storageUrl,
+    uploadedAt: new Date()
   };
 }

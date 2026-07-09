@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, Calendar, Code2, Database, FileText, Globe, Headphones, MessageCircle, Mic, PlugZap, Settings, TestTube2, Trash2, Workflow } from "lucide-react";
+import { Bot, Calendar, Code2, Database, ExternalLink, FileText, Globe, Headphones, MessageCircle, Mic, PlugZap, Settings, TestTube2, Trash2, Workflow } from "lucide-react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { IntegrationCard } from "@/components/integration-card";
 import { PageHeader } from "@/components/layout/page-header";
@@ -20,7 +20,18 @@ export interface AgentDetailView {
   communicationStyle: string;
   behavior: string;
   status: string;
-  trainings: Array<{ id: string; title: string; type: string; content: string; status: string }>;
+  trainings: Array<{
+    id: string;
+    title: string;
+    type: string;
+    content: string;
+    status: string;
+    fileName?: string | null;
+    fileMimeType?: string | null;
+    fileSizeBytes?: number | null;
+    fileUrl?: string | null;
+    uploadedAt?: string | null;
+  }>;
   intents: Array<{ id: string; name: string; description: string; triggers: string[]; action: string; webhookUrl?: string | null; method?: string | null }>;
   knowledgeBases: Array<{ id: string; name: string; itemsCount: number }>;
 }
@@ -36,6 +47,30 @@ const integrations = [
   ["Make", "Crie fluxos visuais para integrações.", Workflow],
   ["N8N", "Permite conectar automações externas por webhook.", Globe]
 ] as const;
+
+function formatFileSize(bytes?: number | null): string {
+  if (!bytes) return "Tamanho desconhecido";
+
+  const units = ["B", "KB", "MB", "GB"] as const;
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function formatUploadDate(value?: string | null): string {
+  if (!value) return "Sem data de upload";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(new Date(value));
+}
 
 export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
   const router = useRouter();
@@ -282,7 +317,28 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
               {agent.trainings.length === 0 ? <p className="rounded-xl border border-dashed border-white/10 bg-white/5 p-5 text-sm text-slate-400">Nenhum treinamento cadastrado.</p> : null}
               {agent.trainings.map((training) => (
                 <div key={training.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
-                  <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-white">{training.title}</p><div className="mt-2 flex gap-2"><Badge>{training.type}</Badge><Badge className="border-primary/30 bg-primary/10 text-primary">{training.status}</Badge></div></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">{training.title}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Badge>{training.type}</Badge>
+                      <Badge className="border-primary/30 bg-primary/10 text-primary">{training.status}</Badge>
+                      {training.fileMimeType ? <Badge>{training.fileMimeType}</Badge> : null}
+                    </div>
+                    {training.fileName ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                        <span>{formatFileSize(training.fileSizeBytes)}</span>
+                        <span>{formatUploadDate(training.uploadedAt)}</span>
+                        {training.fileUrl ? (
+                          <a className="inline-flex items-center gap-1 text-primary hover:underline" href={training.fileUrl} target="_blank" rel="noreferrer">
+                            Abrir original
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="text-amber-200">Original sem storage externo</span>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
                   <Button variant="danger" className="px-3" onClick={() => setDeletingTraining(training.id)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               ))}

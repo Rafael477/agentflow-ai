@@ -24,7 +24,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
       title: file.title,
       type: file.type,
       content: file.content,
-      status: "trained"
+      status: "trained",
+      fileName: file.fileName,
+      fileMimeType: file.fileMimeType,
+      fileSizeBytes: file.fileSizeBytes,
+      fileUrl: file.fileUrl,
+      uploadedAt: file.uploadedAt
     }
   })));
 
