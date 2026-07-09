@@ -1,32 +1,7 @@
 import { NextResponse } from "next/server";
+import { parseTrainingFile } from "@/services/training/file-training-service";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserWorkspace } from "@/lib/workspace";
-
-const MAX_UPLOAD_SIZE = 2 * 1024 * 1024;
-
-function fileTypeLabel(file: File): string {
-  if (file.type.startsWith("image/")) return "Imagem";
-  if (file.type === "application/pdf") return "Documento PDF";
-  if (file.type.includes("word")) return "Documento Word";
-  return "Documento";
-}
-
-async function readFileContent(file: File): Promise<string> {
-  if (file.size > MAX_UPLOAD_SIZE) {
-    return `Arquivo recebido: ${file.name}\nTipo: ${file.type || "desconhecido"}\nTamanho: ${file.size} bytes\n\nO arquivo foi registrado, mas excede o limite de leitura direta de 2MB.`;
-  }
-
-  if (file.type.startsWith("text/") || file.name.endsWith(".md") || file.name.endsWith(".csv")) {
-    return await file.text();
-  }
-
-  if (file.type.startsWith("image/")) {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    return `Imagem recebida para treinamento: ${file.name}\nTipo: ${file.type}\nTamanho: ${file.size} bytes\nData URL: data:${file.type};base64,${buffer.toString("base64")}`;
-  }
-
-  return `Documento recebido para treinamento: ${file.name}\nTipo: ${file.type || "desconhecido"}\nTamanho: ${file.size} bytes\n\nConteúdo binário armazenado como referência. Para extração completa de PDF/DOCX, conecte um parser dedicado.`;
-}
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const workspace = await getCurrentUserWorkspace();
@@ -42,12 +17,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: "Envie ao menos um arquivo." }, { status: 400 });
   }
 
-  const trainings = await Promise.all(files.map(async (file) => prisma.agentTraining.create({
+  const parsedFiles = await Promise.all(files.map(parseTrainingFile));
+  const trainings = await Promise.all(parsedFiles.map(async (file) => prisma.agentTraining.create({
     data: {
       agentId: agent.id,
-      title: file.name,
-      type: fileTypeLabel(file),
-      content: await readFileContent(file),
+      title: file.title,
+      type: file.type,
+      content: file.content,
       status: "trained"
     }
   })));
