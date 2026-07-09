@@ -15,7 +15,8 @@ function getMockAgent(id: string): AgentDetailView {
     behavior: "Atenda clientes com simpatia e profissionalismo, apresentando serviços, valores e opções de agendamento.",
     status: "ACTIVE",
     trainings: [],
-    intents: []
+    intents: [],
+    knowledgeBases: []
   };
 }
 
@@ -24,13 +25,20 @@ async function getAgent(id: string): Promise<AgentDetailView | null> {
     const workspace = await getCurrentUserWorkspace();
     if (!workspace) return getMockAgent(id);
 
-    const agent = await prisma.agent.findFirst({
-      where: { id, workspaceId: workspace.id },
-      include: {
-        trainings: { orderBy: { createdAt: "desc" } },
-        intents: { orderBy: { createdAt: "desc" } }
-      }
-    });
+    const [agent, knowledgeBases] = await Promise.all([
+      prisma.agent.findFirst({
+        where: { id, workspaceId: workspace.id },
+        include: {
+          trainings: { orderBy: { createdAt: "desc" } },
+          intents: { orderBy: { createdAt: "desc" } }
+        }
+      }),
+      prisma.knowledgeBase.findMany({
+        where: { workspaceId: workspace.id },
+        include: { _count: { select: { items: true } } },
+        orderBy: { createdAt: "desc" }
+      })
+    ]);
 
     if (!agent) return null;
 
@@ -57,6 +65,11 @@ async function getAgent(id: string): Promise<AgentDetailView | null> {
         action: intent.action,
         webhookUrl: intent.webhookUrl,
         method: intent.method
+      })),
+      knowledgeBases: knowledgeBases.map((base) => ({
+        id: base.id,
+        name: base.name,
+        itemsCount: base._count.items
       }))
     };
   } catch {

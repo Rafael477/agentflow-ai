@@ -22,6 +22,7 @@ export interface AgentDetailView {
   status: string;
   trainings: Array<{ id: string; title: string; type: string; content: string; status: string }>;
   intents: Array<{ id: string; name: string; description: string; triggers: string[]; action: string; webhookUrl?: string | null; method?: string | null }>;
+  knowledgeBases: Array<{ id: string; name: string; itemsCount: number }>;
 }
 
 const menu = ["Perfil", "Trabalho", "Treinamentos", "Intenções", "Integrações", "Servidores MCP", "Canais", "Configurações"];
@@ -50,6 +51,7 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
   const [testOpen, setTestOpen] = useState(false);
   const [testMessage, setTestMessage] = useState("Olá, quais serviços vocês oferecem?");
   const [testAnswer, setTestAnswer] = useState("");
+  const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState(agent.knowledgeBases[0]?.id ?? "");
   const [intentForm, setIntentForm] = useState({ name: "", description: "", triggers: "", action: "", webhookUrl: "" });
   const [deletingTraining, setDeletingTraining] = useState<string | null>(null);
   const [deletingIntent, setDeletingIntent] = useState<string | null>(null);
@@ -100,6 +102,52 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
     }
 
     setTrainingContent("");
+    router.refresh();
+  }
+
+  async function uploadTrainingFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    if (!files?.length) return;
+
+    const formData = new FormData();
+    Array.from(files).forEach((file) => formData.append("files", file));
+
+    setLoading("upload-training");
+    setError("");
+    const response = await fetch(`/api/agents/${agent.id}/trainings/upload`, {
+      method: "POST",
+      body: formData
+    });
+    setLoading("");
+    event.target.value = "";
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      setError(body?.error ?? "Não foi possível enviar os arquivos.");
+      return;
+    }
+
+    setNotice("Arquivo adicionado ao treinamento do agente.");
+    router.refresh();
+  }
+
+  async function attachKnowledgeBase() {
+    if (!selectedKnowledgeBaseId) return;
+
+    setLoading("knowledge-base");
+    setError("");
+    const response = await fetch(`/api/agents/${agent.id}/knowledge-bases/${selectedKnowledgeBaseId}`, {
+      method: "POST"
+    });
+    setLoading("");
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      setError(body?.error ?? "Não foi possível vincular a base.");
+      return;
+    }
+
+    setNotice("Base de conhecimento vinculada como treinamento do agente.");
     router.refresh();
   }
 
@@ -214,7 +262,21 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
             <div className="mt-5 flex flex-col gap-3 md:flex-row">
               <input className="min-w-0 flex-1 rounded-xl border border-white/10 bg-panel p-3 outline-none" placeholder="Escreva uma afirmação para cadastrar..." value={trainingContent} onChange={(event) => setTrainingContent(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void createTraining(); } }} />
               <Button variant="secondary" onClick={createTraining} disabled={loading === "training"}><FileText className="mr-2 h-4 w-4" />{loading === "training" ? "Salvando..." : "Cadastrar"}</Button>
-              <Button variant="secondary" onClick={() => setNotice("Upload de imagem será conectado ao storage na próxima etapa.")}><Bot className="mr-2 h-4 w-4" />Imagem</Button>
+              <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-panel px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10">
+                <Bot className="mr-2 h-4 w-4" />
+                {loading === "upload-training" ? "Enviando..." : "Upload"}
+                <input className="sr-only" multiple type="file" accept="image/*,.txt,.md,.csv,.pdf,.doc,.docx" onChange={uploadTrainingFiles} />
+              </label>
+            </div>
+            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 md:flex-row md:items-end">
+              <label className="grid flex-1 gap-2 text-sm text-slate-300">
+                Base de conhecimento
+                <select className="rounded-xl border border-white/10 bg-panel p-3 outline-none" value={selectedKnowledgeBaseId} onChange={(event) => setSelectedKnowledgeBaseId(event.target.value)}>
+                  <option value="">Selecione uma base</option>
+                  {agent.knowledgeBases.map((base) => <option key={base.id} value={base.id}>{base.name} ({base.itemsCount} itens)</option>)}
+                </select>
+              </label>
+              <Button variant="secondary" onClick={attachKnowledgeBase} disabled={!selectedKnowledgeBaseId || loading === "knowledge-base"}>{loading === "knowledge-base" ? "Vinculando..." : "Vincular base"}</Button>
             </div>
             <div className="mt-5 space-y-3">
               {agent.trainings.length === 0 ? <p className="rounded-xl border border-dashed border-white/10 bg-white/5 p-5 text-sm text-slate-400">Nenhum treinamento cadastrado.</p> : null}
