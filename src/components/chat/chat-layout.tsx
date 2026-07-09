@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Send, SlidersHorizontal, UserCheck, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,22 +9,74 @@ import { ConversationList } from "@/components/chat/conversation-list";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import type { ConversationSummary, Message } from "@/types/domain";
 
+interface ConversationsResponse {
+  conversations: ConversationSummary[];
+}
+
+interface SendMessageResponse {
+  customerMessage: Message;
+  agentMessage: Message;
+  creditsUsed: number;
+}
+
+interface ApiErrorResponse {
+  error?: string;
+}
+
+const statusLabels: Record<string, string> = {
+  open: "Aberto",
+  in_progress: "Em andamento",
+  resolved: "Resolvido",
+  closed: "Encerrado"
+};
+
 export function ChatLayout({ conversations }: { conversations: ConversationSummary[] }) {
   const router = useRouter();
+  const [liveConversations, setLiveConversations] = useState(conversations);
   const [selectedId, setSelectedId] = useState(conversations[0]?.id);
   const [input, setInput] = useState("");
-  const [localMessages, setLocalMessages] = useState<Record<string, Message[]>>({});
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    setLiveConversations(conversations);
+  }, [conversations]);
+
+  useEffect(() => {
+    const eventSource = new EventSource("/api/chat/stream");
+
+    eventSource.addEventListener("conversations", (event: MessageEvent<string>) => {
+      const payload = JSON.parse(event.data) as ConversationsResponse;
+      setError("");
+      setLiveConversations(payload.conversations);
+    });
+
+    eventSource.addEventListener("error", () => {
+      setError("Conexão em tempo real instável. Tentando reconectar...");
+    });
+
+    return () => eventSource.close();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId && liveConversations[0]?.id) {
+      setSelectedId(liveConversations[0].id);
+    }
+  }, [liveConversations, selectedId]);
+
   const selectedConversation = useMemo(
-    () => conversations.find((conversation) => conversation.id === selectedId) ?? conversations[0],
-    [conversations, selectedId]
+    () => liveConversations.find((conversation) => conversation.id === selectedId) ?? liveConversations[0],
+    [liveConversations, selectedId]
   );
 
-  const messages = selectedConversation
-    ? localMessages[selectedConversation.id] ?? selectedConversation.messages
-    : [];
+  const messages = selectedConversation?.messages ?? [];
+
+  function updateConversation(conversationId: string, updater: (conversation: ConversationSummary) => ConversationSummary) {
+    setLiveConversations((current) => current.map((conversation) => (
+      conversation.id === conversationId ? updater(conversation) : conversation
+    )));
+  }
 
   async function handleSend(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,9 +94,10 @@ export function ChatLayout({ conversations }: { conversations: ConversationSumma
       time: new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(new Date())
     };
 
-    setLocalMessages((current) => ({
-      ...current,
-      [selectedConversation.id]: [...(current[selectedConversation.id] ?? selectedConversation.messages), optimisticMessage]
+    updateConversation(selectedConversation.id, (conversation) => ({
+      ...conversation,
+      lastMessage: content,
+      messages: [...conversation.messages, optimisticMessage]
     }));
 
     const response = await fetch("/api/chat/send", {
@@ -53,19 +106,48 @@ export function ChatLayout({ conversations }: { conversations: ConversationSumma
       body: JSON.stringify({ conversationId: selectedConversation.id, message: content })
     });
 
-    const body = await response.json().catch(() => null);
+    const body = await response.json().catch(() => null) as SendMessageResponse | ApiErrorResponse | null;
     setLoading(false);
 
     if (!response.ok) {
-      setError(body?.error ?? "Não foi possível enviar a mensagem.");
+      setError((body as ApiErrorResponse | null)?.error ?? "Não foi possível enviar a mensagem.");
       return;
     }
 
-    setLocalMessages((current) => ({
-      ...current,
-      [selectedConversation.id]: [...(current[selectedConversation.id] ?? selectedConversation.messages), body.agentMessage]
+    const result = body as SendMessageResponse;
+    updateConversation(selectedConversation.id, (conversation) => ({
+      ...conversation,
+      lastMessage: result.agentMessage.content,
+      messages: [
+        ...conversation.messages.filter((message) => message.id !== optimisticMessage.id),
+        result.customerMessage,
+        result.agentMessage
+      ]
     }));
     router.refresh();
+  }
+
+  async function handleConversationAction(action: "assign" | "resolve" | "close") {
+    if (!selectedConversation) return;
+
+    setActionLoading(action);
+    setError("");
+
+    const response = await fetch(`/api/chat/conversations/${selectedConversation.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action })
+    });
+
+    const body = await response.json().catch(() => null) as ConversationsResponse | ApiErrorResponse | null;
+    setActionLoading("");
+
+    if (!response.ok) {
+      setError((body as ApiErrorResponse | null)?.error ?? "Não foi possível atualizar a conversa.");
+      return;
+    }
+
+    setLiveConversations((body as ConversationsResponse).conversations);
   }
 
   return (
@@ -80,20 +162,26 @@ export function ChatLayout({ conversations }: { conversations: ConversationSumma
             <button key={tab} className={index === 0 ? "rounded-full bg-primary px-3 py-1 text-sm font-semibold text-slate-950" : "rounded-full bg-white/5 px-3 py-1 text-sm text-slate-300"}>{tab}</button>
           ))}
         </div>
-        <ConversationList conversations={conversations} selectedId={selectedConversation?.id} onSelect={setSelectedId} />
+        <ConversationList conversations={liveConversations} selectedId={selectedConversation?.id} onSelect={setSelectedId} />
       </Card>
       <Card className="flex min-h-[660px] flex-col p-0">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-4">
           <div>
             <p className="font-semibold text-white">{selectedConversation?.contactName ?? "Moderação de atendimentos"}</p>
             <p className="text-xs text-slate-400">{selectedConversation ? `${selectedConversation.channelName} • ${selectedConversation.agentName}` : "Selecione uma conversa"}</p>
+            {selectedConversation?.assignedTo ? <p className="mt-1 text-xs text-primary">Responsável: {selectedConversation.assignedTo}</p> : null}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary"><UserCheck className="mr-2 h-4 w-4" />Assumir atendimento</Button>
-            <Button variant="ghost">Resolver</Button>
-            <Button variant="danger"><XCircle className="mr-2 h-4 w-4" />Encerrar</Button>
+            <Button variant="secondary" disabled={!selectedConversation || Boolean(actionLoading)} onClick={() => handleConversationAction("assign")}><UserCheck className="mr-2 h-4 w-4" />{actionLoading === "assign" ? "Assumindo..." : "Assumir atendimento"}</Button>
+            <Button variant="ghost" disabled={!selectedConversation || Boolean(actionLoading)} onClick={() => handleConversationAction("resolve")}>{actionLoading === "resolve" ? "Resolvendo..." : "Resolver"}</Button>
+            <Button variant="danger" disabled={!selectedConversation || Boolean(actionLoading)} onClick={() => handleConversationAction("close")}><XCircle className="mr-2 h-4 w-4" />{actionLoading === "close" ? "Encerrando..." : "Encerrar"}</Button>
           </div>
         </div>
+        {selectedConversation ? (
+          <div className="border-b border-white/10 px-4 py-2 text-xs text-slate-400">
+            Status: <span className="font-semibold text-white">{statusLabels[selectedConversation.status] ?? selectedConversation.status}</span>
+          </div>
+        ) : null}
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {messages.length === 0 ? (
             <div className="grid h-full place-items-center text-center">

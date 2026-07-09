@@ -1,8 +1,7 @@
 import { ChatLayout } from "@/components/chat/chat-layout";
 import { PageHeader } from "@/components/layout/page-header";
-import { mapConversation } from "@/lib/mappers";
+import { getWorkspaceConversations } from "@/lib/chat-conversations";
 import { messages as mockMessages } from "@/lib/mock-data";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUserWorkspace } from "@/lib/workspace";
 import type { ConversationSummary } from "@/types/domain";
 
@@ -11,19 +10,9 @@ async function getConversations(): Promise<ConversationSummary[]> {
     const workspace = await getCurrentUserWorkspace();
     if (!workspace) return getMockConversations();
 
-    const conversations = await prisma.conversation.findMany({
-      where: { workspaceId: workspace.id },
-      include: {
-        contact: { select: { name: true } },
-        channel: { select: { name: true } },
-        agent: { select: { name: true } },
-        messages: { orderBy: { createdAt: "asc" } }
-      },
-      orderBy: { updatedAt: "desc" }
-    });
-
+    const conversations = await getWorkspaceConversations(workspace.id);
     if (conversations.length === 0) return getMockConversations();
-    return conversations.map(mapConversation);
+    return conversations;
   } catch {
     return getMockConversations();
   }

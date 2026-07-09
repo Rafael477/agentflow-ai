@@ -64,6 +64,7 @@ export function mapConversation(
     channelName: conversation.channel?.name ?? "Canal não definido",
     agentName: conversation.agent?.name ?? "Agente não definido",
     status: conversation.status,
+    assignedTo: conversation.assignedTo ?? undefined,
     lastMessage: messages.at(-1)?.content ?? "Sem mensagens ainda",
     messages
   };

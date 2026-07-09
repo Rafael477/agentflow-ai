@@ -45,6 +45,7 @@ export interface ConversationSummary {
   channelName: string;
   agentName: string;
   status: string;
+  assignedTo?: string;
   lastMessage: string;
   messages: Message[];
 }
