@@ -9,6 +9,8 @@ import { ConversationList } from "@/components/chat/conversation-list";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import type { ConversationSummary, Message } from "@/types/domain";
 
+type ConversationFilter = "all" | "waiting" | "in_progress" | "mine";
+
 interface ConversationsResponse {
   conversations: ConversationSummary[];
 }
@@ -30,14 +32,36 @@ const statusLabels: Record<string, string> = {
   closed: "Encerrado"
 };
 
-export function ChatLayout({ conversations }: { conversations: ConversationSummary[] }) {
+const filterLabels: Record<ConversationFilter, string> = {
+  all: "Todos",
+  waiting: "Em espera",
+  in_progress: "Andamento",
+  mine: "Meus"
+};
+
+export function ChatLayout({
+  conversations,
+  currentUserName,
+  currentUserEmail
+}: {
+  conversations: ConversationSummary[];
+  currentUserName?: string | null;
+  currentUserEmail?: string | null;
+}) {
   const router = useRouter();
   const [liveConversations, setLiveConversations] = useState(conversations);
-  const [selectedId, setSelectedId] = useState(conversations[0]?.id);
+  const [selectedId, setSelectedId] = useState<string | undefined>(conversations[0]?.id);
+  const [activeFilter, setActiveFilter] = useState<ConversationFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState("");
+
+  const currentAssignees = useMemo(
+    () => [currentUserName, currentUserEmail].filter((value): value is string => Boolean(value?.trim())),
+    [currentUserEmail, currentUserName]
+  );
 
   useEffect(() => {
     setLiveConversations(conversations);
@@ -65,9 +89,60 @@ export function ChatLayout({ conversations }: { conversations: ConversationSumma
     }
   }, [liveConversations, selectedId]);
 
+  const filterCounts = useMemo(() => {
+    const isMine = (conversation: ConversationSummary) => (
+      Boolean(conversation.assignedTo && currentAssignees.includes(conversation.assignedTo))
+    );
+
+    return {
+      all: liveConversations.length,
+      waiting: liveConversations.filter((conversation) => conversation.status === "open").length,
+      in_progress: liveConversations.filter((conversation) => conversation.status === "in_progress").length,
+      mine: liveConversations.filter(isMine).length
+    } satisfies Record<ConversationFilter, number>;
+  }, [currentAssignees, liveConversations]);
+
+  const filteredConversations = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+
+    return liveConversations.filter((conversation) => {
+      const matchesFilter =
+        activeFilter === "all"
+          || (activeFilter === "waiting" && conversation.status === "open")
+          || (activeFilter === "in_progress" && conversation.status === "in_progress")
+          || (
+            activeFilter === "mine"
+            && Boolean(conversation.assignedTo && currentAssignees.includes(conversation.assignedTo))
+          );
+
+      if (!matchesFilter) return false;
+      if (!normalizedSearch) return true;
+
+      return [
+        conversation.contactName,
+        conversation.channelName,
+        conversation.agentName,
+        conversation.assignedTo,
+        conversation.lastMessage,
+        statusLabels[conversation.status] ?? conversation.status
+      ].some((value) => value?.toLowerCase().includes(normalizedSearch));
+    });
+  }, [activeFilter, currentAssignees, liveConversations, searchQuery]);
+
+  useEffect(() => {
+    if (filteredConversations.length === 0) {
+      setSelectedId(undefined);
+      return;
+    }
+
+    if (!filteredConversations.some((conversation) => conversation.id === selectedId)) {
+      setSelectedId(filteredConversations[0].id);
+    }
+  }, [filteredConversations, selectedId]);
+
   const selectedConversation = useMemo(
-    () => liveConversations.find((conversation) => conversation.id === selectedId) ?? liveConversations[0],
-    [liveConversations, selectedId]
+    () => filteredConversations.find((conversation) => conversation.id === selectedId) ?? filteredConversations[0],
+    [filteredConversations, selectedId]
   );
 
   const messages = selectedConversation?.messages ?? [];
@@ -154,15 +229,27 @@ export function ChatLayout({ conversations }: { conversations: ConversationSumma
     <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
       <Card className="min-h-[660px]">
         <div className="flex gap-2">
-          <input className="min-w-0 flex-1 rounded-lg border border-white/10 bg-panel px-3 py-2 text-sm outline-none" placeholder="Buscar por nome ou telefone" />
+          <input
+            className="min-w-0 flex-1 rounded-lg border border-white/10 bg-panel px-3 py-2 text-sm outline-none"
+            placeholder="Buscar por nome, canal ou mensagem"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
           <Button variant="secondary" className="px-3"><SlidersHorizontal className="h-4 w-4" /></Button>
         </div>
         <div className="my-4 flex gap-2 overflow-x-auto">
-          {["Todos", "Em espera", "Andamento", "Meus"].map((tab, index) => (
-            <button key={tab} className={index === 0 ? "rounded-full bg-primary px-3 py-1 text-sm font-semibold text-slate-950" : "rounded-full bg-white/5 px-3 py-1 text-sm text-slate-300"}>{tab}</button>
+          {(Object.keys(filterLabels) as ConversationFilter[]).map((filter) => (
+            <button
+              key={filter}
+              className={activeFilter === filter ? "rounded-full bg-primary px-3 py-1 text-sm font-semibold text-slate-950" : "rounded-full bg-white/5 px-3 py-1 text-sm text-slate-300"}
+              onClick={() => setActiveFilter(filter)}
+              type="button"
+            >
+              {filterLabels[filter]} <span className={activeFilter === filter ? "text-slate-800" : "text-slate-500"}>{filterCounts[filter]}</span>
+            </button>
           ))}
         </div>
-        <ConversationList conversations={liveConversations} selectedId={selectedConversation?.id} onSelect={setSelectedId} />
+        <ConversationList conversations={filteredConversations} selectedId={selectedConversation?.id} onSelect={setSelectedId} />
       </Card>
       <Card className="flex min-h-[660px] flex-col p-0">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-4">

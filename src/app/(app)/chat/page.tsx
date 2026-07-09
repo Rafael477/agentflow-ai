@@ -1,5 +1,7 @@
+import { getServerSession } from "next-auth";
 import { ChatLayout } from "@/components/chat/chat-layout";
 import { PageHeader } from "@/components/layout/page-header";
+import { authOptions } from "@/lib/auth";
 import { getWorkspaceConversations } from "@/lib/chat-conversations";
 import { messages as mockMessages } from "@/lib/mock-data";
 import { getCurrentUserWorkspace } from "@/lib/workspace";
@@ -33,12 +35,15 @@ function getMockConversations(): ConversationSummary[] {
 }
 
 export default async function ChatPage() {
-  const conversations = await getConversations();
+  const [conversations, session] = await Promise.all([
+    getConversations(),
+    getServerSession(authOptions)
+  ]);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Chat" subtitle="Modere atendimentos em tempo real e assuma conversas quando necessário" />
-      <ChatLayout conversations={conversations} />
+      <ChatLayout conversations={conversations} currentUserName={session?.user?.name} currentUserEmail={session?.user?.email} />
     </div>
   );
 }
