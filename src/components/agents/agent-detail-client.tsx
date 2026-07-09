@@ -36,6 +36,15 @@ export interface AgentDetailView {
   knowledgeBases: Array<{ id: string; name: string; itemsCount: number }>;
 }
 
+interface TrainingPreview {
+  title: string;
+  type: string;
+  content: string;
+  fileName: string;
+  fileMimeType: string;
+  fileSizeBytes: number;
+}
+
 const menu = ["Perfil", "Trabalho", "Treinamentos", "Intenções", "Integrações", "Servidores MCP", "Canais", "Configurações"];
 const integrations = [
   ["ElevenLabs", "Permite que seu agente responda em áudio com voz humanizada.", Mic],
@@ -88,6 +97,9 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
   const [testAnswer, setTestAnswer] = useState("");
   const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState(agent.knowledgeBases[0]?.id ?? "");
   const [intentForm, setIntentForm] = useState({ name: "", description: "", triggers: "", action: "", webhookUrl: "" });
+  const [pendingTrainingFiles, setPendingTrainingFiles] = useState<File[]>([]);
+  const [trainingPreviews, setTrainingPreviews] = useState<TrainingPreview[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [deletingTraining, setDeletingTraining] = useState<string | null>(null);
   const [deletingIntent, setDeletingIntent] = useState<string | null>(null);
   const [loading, setLoading] = useState("");
@@ -144,12 +156,13 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
     const files = event.target.files;
     if (!files?.length) return;
 
+    const selectedFiles = Array.from(files);
     const formData = new FormData();
-    Array.from(files).forEach((file) => formData.append("files", file));
+    selectedFiles.forEach((file) => formData.append("files", file));
 
-    setLoading("upload-training");
+    setLoading("preview-training");
     setError("");
-    const response = await fetch(`/api/agents/${agent.id}/trainings/upload`, {
+    const response = await fetch(`/api/agents/${agent.id}/trainings/upload?mode=preview`, {
       method: "POST",
       body: formData
     });
@@ -158,12 +171,47 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
 
     if (!response.ok) {
       const body = await response.json().catch(() => null);
-      setError(body?.error ?? "Não foi possível enviar os arquivos.");
+      setError(body?.error ?? "Não foi possível gerar a prévia dos arquivos.");
       return;
     }
 
-    setNotice("Arquivo adicionado ao treinamento do agente.");
+    const body = await response.json() as { previews?: TrainingPreview[] };
+    setPendingTrainingFiles(selectedFiles);
+    setTrainingPreviews(body.previews ?? []);
+    setPreviewOpen(true);
+  }
+
+  async function confirmTrainingUpload() {
+    if (pendingTrainingFiles.length === 0) return;
+
+    const formData = new FormData();
+    pendingTrainingFiles.forEach((file) => formData.append("files", file));
+
+    setLoading("upload-training");
+    setError("");
+    const response = await fetch(`/api/agents/${agent.id}/trainings/upload`, {
+      method: "POST",
+      body: formData
+    });
+    setLoading("");
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      setError(body?.error ?? "Não foi possível salvar os arquivos.");
+      return;
+    }
+
+    setPreviewOpen(false);
+    setPendingTrainingFiles([]);
+    setTrainingPreviews([]);
+    setNotice("Arquivo confirmado e adicionado ao treinamento do agente.");
     router.refresh();
+  }
+
+  function cancelTrainingPreview() {
+    setPreviewOpen(false);
+    setPendingTrainingFiles([]);
+    setTrainingPreviews([]);
   }
 
   async function attachKnowledgeBase() {
@@ -299,7 +347,7 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
               <Button variant="secondary" onClick={createTraining} disabled={loading === "training"}><FileText className="mr-2 h-4 w-4" />{loading === "training" ? "Salvando..." : "Cadastrar"}</Button>
               <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-panel px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10">
                 <Bot className="mr-2 h-4 w-4" />
-                {loading === "upload-training" ? "Enviando..." : "Upload"}
+                {loading === "preview-training" ? "Analisando..." : "Upload"}
                 <input className="sr-only" multiple type="file" accept="image/*,.txt,.md,.csv,.pdf,.doc,.docx" onChange={uploadTrainingFiles} />
               </label>
             </div>
@@ -373,6 +421,28 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
           <Button className="justify-self-end" disabled={loading === "test"}>{loading === "test" ? "Testando..." : "Enviar teste"}</Button>
           {testAnswer ? <div className="rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-slate-100">{testAnswer}</div> : null}
         </form>
+      </Modal>
+
+      <Modal open={previewOpen} onClose={cancelTrainingPreview} title="Prévia do treinamento">
+        <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">
+          {trainingPreviews.map((preview) => (
+            <div key={preview.fileName} className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{preview.title}</p>
+                <Badge>{preview.type}</Badge>
+                <Badge>{formatFileSize(preview.fileSizeBytes)}</Badge>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">{preview.fileMimeType}</p>
+              <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950/70 p-3 text-xs leading-relaxed text-slate-200">{preview.content}</pre>
+            </div>
+          ))}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={cancelTrainingPreview} disabled={loading === "upload-training"}>Cancelar</Button>
+            <Button onClick={confirmTrainingUpload} disabled={loading === "upload-training"}>
+              {loading === "upload-training" ? "Salvando..." : "Confirmar treinamento"}
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       <ConfirmDialog open={Boolean(deletingTraining)} onClose={() => setDeletingTraining(null)} title="Excluir treinamento?" onConfirm={deleteTraining} loading={loading === "delete-training"} />

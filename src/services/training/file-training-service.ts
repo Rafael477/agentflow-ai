@@ -1,4 +1,5 @@
 import { put } from "@vercel/blob";
+import { createWorker } from "tesseract.js";
 
 const MAX_STORED_TEXT_LENGTH = 80_000;
 
@@ -11,6 +12,15 @@ export interface ParsedTrainingFile {
   fileSizeBytes: number;
   fileUrl: string | null;
   uploadedAt: Date;
+}
+
+export interface TrainingFilePreview {
+  title: string;
+  type: string;
+  content: string;
+  fileName: string;
+  fileMimeType: string;
+  fileSizeBytes: number;
 }
 
 function getFileExtension(fileName: string): string {
@@ -133,19 +143,25 @@ async function extractText(file: File, buffer: Buffer): Promise<string> {
   }
 
   if (file.type.startsWith("image/")) {
-    return "Imagem enviada para treinamento. OCR ainda não está habilitado; o arquivo original foi preservado no storage externo quando configurado.";
+    return extractImageText(buffer);
   }
 
   return "Arquivo recebido. Extração automática de texto não disponível para este tipo.";
 }
 
-export async function parseTrainingFile(file: File): Promise<ParsedTrainingFile> {
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const storageUrl = await uploadToBlob(file, buffer);
+async function extractImageText(buffer: Buffer): Promise<string> {
+  const worker = await createWorker("por+eng");
+
+  try {
+    const result = await worker.recognize(buffer);
+    return result.data.text.trim() || "Nenhum texto foi reconhecido na imagem via OCR.";
+  } finally {
+    await worker.terminate();
+  }
+}
+
+async function buildTrainingFilePreview(file: File, buffer: Buffer): Promise<TrainingFilePreview> {
   const extractedText = await extractText(file, buffer);
-  const storageLine = storageUrl
-    ? `Arquivo original: ${storageUrl}`
-    : "Arquivo original: não enviado ao storage externo porque BLOB_READ_WRITE_TOKEN não está configurado.";
 
   return {
     title: file.name,
@@ -154,14 +170,38 @@ export async function parseTrainingFile(file: File): Promise<ParsedTrainingFile>
       `Nome do arquivo: ${file.name}`,
       `Tipo MIME: ${file.type || "desconhecido"}`,
       `Tamanho: ${file.size} bytes`,
-      storageLine,
       "",
       "Conteúdo extraído:",
       extractedText || "Nenhum texto foi extraído deste arquivo."
     ].join("\n")),
     fileName: file.name,
     fileMimeType: file.type || "application/octet-stream",
-    fileSizeBytes: file.size,
+    fileSizeBytes: file.size
+  };
+}
+
+export async function previewTrainingFile(file: File): Promise<TrainingFilePreview> {
+  const buffer = Buffer.from(await file.arrayBuffer());
+  return buildTrainingFilePreview(file, buffer);
+}
+
+export async function parseTrainingFile(file: File): Promise<ParsedTrainingFile> {
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const [preview, storageUrl] = await Promise.all([
+    buildTrainingFilePreview(file, buffer),
+    uploadToBlob(file, buffer)
+  ]);
+  const storageLine = storageUrl
+    ? `Arquivo original: ${storageUrl}`
+    : "Arquivo original: não enviado ao storage externo porque BLOB_READ_WRITE_TOKEN não está configurado.";
+
+  return {
+    ...preview,
+    content: trimStoredText([
+      preview.content,
+      "",
+      storageLine
+    ].join("\n")),
     fileUrl: storageUrl,
     uploadedAt: new Date()
   };

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { parseTrainingFile } from "@/services/training/file-training-service";
+import { parseTrainingFile, previewTrainingFile } from "@/services/training/file-training-service";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserWorkspace } from "@/lib/workspace";
 
@@ -15,6 +15,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   if (files.length === 0) {
     return NextResponse.json({ error: "Envie ao menos um arquivo." }, { status: 400 });
+  }
+
+  const mode = new URL(request.url).searchParams.get("mode");
+  if (mode === "preview") {
+    const previews = await Promise.all(files.map(previewTrainingFile));
+    return NextResponse.json({ previews });
   }
 
   const parsedFiles = await Promise.all(files.map(parseTrainingFile));
