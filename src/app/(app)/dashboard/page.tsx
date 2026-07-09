@@ -1,9 +1,9 @@
 import { Bot, CalendarClock, CreditCard, MessageCircle, UserPlus } from "lucide-react";
+import { DashboardActions } from "@/components/dashboard/dashboard-actions";
 import { DashboardChart } from "@/components/dashboard/dashboard-chart";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { workspace as mockWorkspace } from "@/lib/mock-data";
 import { prisma } from "@/lib/prisma";
@@ -39,7 +39,7 @@ export default async function DashboardPage() {
       <PageHeader
         title="Dashboards"
         subtitle="Informações em tempo real sobre sua conta e agentes"
-        actions={<><Button>Visão Geral</Button><Button variant="secondary">Atendimento</Button><Button variant="secondary">Filtros</Button></>}
+        actions={<DashboardActions />}
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Atendimentos Concluídos" value={String(stats.conversations)} change="+12%" icon={MessageCircle} />

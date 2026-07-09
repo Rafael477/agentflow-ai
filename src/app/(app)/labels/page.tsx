@@ -1,14 +1,30 @@
-import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { LabelsClient, type LabelItem } from "@/components/labels/labels-client";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUserWorkspace } from "@/lib/workspace";
 
-const labels = ["Novo lead", "Cliente fechado", "Orçamento enviado", "Aguardando pagamento", "Pós-venda"];
+const fallbackLabels: LabelItem[] = [
+  { id: "novo-lead", name: "Novo lead", color: "#14B8A6" },
+  { id: "cliente-fechado", name: "Cliente fechado", color: "#A855F7" },
+  { id: "orcamento-enviado", name: "Orçamento enviado", color: "#F59E0B" }
+];
 
-export default function LabelsPage() {
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Etiquetas" subtitle="Organize contatos e conversas por estágio" actions={<Button>Criar etiqueta</Button>} />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{labels.map((label, index) => <Card key={label} className="flex items-center justify-between"><div className="flex items-center gap-3"><span className="h-4 w-4 rounded-full" style={{ backgroundColor: ["#14B8A6", "#A855F7", "#F59E0B", "#EF4444", "#38BDF8"][index] }} /><span className="font-medium text-white">{label}</span></div><Button variant="ghost">Editar</Button></Card>)}</div>
-    </div>
-  );
+async function getLabels(): Promise<LabelItem[]> {
+  try {
+    const workspace = await getCurrentUserWorkspace();
+    if (!workspace) return fallbackLabels;
+
+    const labels = await prisma.tag.findMany({
+      where: { workspaceId: workspace.id },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return labels;
+  } catch {
+    return fallbackLabels;
+  }
+}
+
+export default async function LabelsPage() {
+  const labels = await getLabels();
+  return <LabelsClient labels={labels} />;
 }

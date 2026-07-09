@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plug, Settings } from "lucide-react";
 import type { Channel } from "@/types/domain";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +12,23 @@ import { ConnectChannelModal } from "@/components/channels/connect-channel-modal
 import { ChannelRowActions } from "@/components/channels/channel-row-actions";
 
 export function ChannelTable({ channels }: { channels: Channel[] }) {
+  const router = useRouter();
   const [settingsChannel, setSettingsChannel] = useState<Channel | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
+  const [connectingId, setConnectingId] = useState("");
+
+  async function connectChannel(channel: Channel) {
+    setConnectingId(channel.id);
+    const response = await fetch(`/api/channels/${channel.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: channel.status === "connected" ? "DISCONNECTED" : "CONNECTED" })
+    });
+    setConnectingId("");
+
+    if (response.ok) router.refresh();
+    setConnectOpen(true);
+  }
 
   return (
     <>
@@ -36,10 +52,10 @@ export function ChannelTable({ channels }: { channels: Channel[] }) {
                   <td className="px-5 py-4 text-slate-300">{channel.agent}</td>
                   <td className="px-5 py-4 text-slate-400">{channel.identifier}</td>
                   <td className="px-5 py-4 text-slate-400">{channel.department}</td>
-                  <td className="px-5 py-4"><Badge className="border-rose-400/30 bg-rose-400/10 text-rose-200">Desconectado</Badge></td>
+                  <td className="px-5 py-4"><Badge className={channel.status === "connected" ? "border-primary/30 bg-primary/10 text-primary" : "border-rose-400/30 bg-rose-400/10 text-rose-200"}>{channel.status === "connected" ? "Conectado" : "Desconectado"}</Badge></td>
                   <td className="px-5 py-4">
                     <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => setConnectOpen(true)}><Plug className="mr-2 h-4 w-4" />Conectar</Button>
+                      <Button variant="secondary" disabled={connectingId === channel.id} onClick={() => connectChannel(channel)}><Plug className="mr-2 h-4 w-4" />{connectingId === channel.id ? "Atualizando..." : channel.status === "connected" ? "Desconectar" : "Conectar"}</Button>
                       <Button variant="ghost" onClick={() => setSettingsChannel(channel)}><Settings className="mr-2 h-4 w-4" />Configurações</Button>
                       <ChannelRowActions channel={channel} />
                     </div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { BarChart3, Bot, ChevronDown, LayoutGrid, MessageSquareText, MoreHorizontal, RadioTower, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,13 @@ const groups = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const [copied, setCopied] = useState(false);
+
+  async function copyReferral() {
+    await navigator.clipboard.writeText("https://files-mentioned-by-the-user-perfeit.vercel.app/register?ref=rafael");
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  }
 
   return (
     <aside className="hidden h-screen w-72 shrink-0 border-r border-white/10 bg-card p-4 lg:sticky lg:top-0 lg:flex lg:flex-col">
@@ -77,7 +85,7 @@ export function AppSidebar() {
         </div>
         <p className="font-semibold text-white">Indique e Ganhe</p>
         <p className="mt-1 text-xs text-slate-400">Indique seus amigos e ganhe créditos toda vez que um deles se tornar cliente.</p>
-        <Button className="mt-3 w-full">Indicar amigo</Button>
+        <Button className="mt-3 w-full" onClick={copyReferral}>{copied ? "Link copiado" : "Indicar amigo"}</Button>
       </div>
     </aside>
   );

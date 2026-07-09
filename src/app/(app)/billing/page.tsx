@@ -1,20 +1,42 @@
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { workspace } from "@/lib/mock-data";
+import { BillingClient, type BillingTransaction } from "@/components/billing/billing-client";
+import { workspace as mockWorkspace } from "@/lib/mock-data";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUserWorkspace } from "@/lib/workspace";
 
-const plans = ["Starter — 1 agente — 1 canal — 1.000 créditos", "Pro — 5 agentes — 5 canais — 10.000 créditos", "Business — agentes ilimitados — canais ilimitados — 50.000 créditos"];
+async function getBilling(): Promise<{ credits: number; currentPlan?: string | null; transactions: BillingTransaction[] }> {
+  try {
+    const workspace = await getCurrentUserWorkspace();
+    if (!workspace) return { credits: mockWorkspace.credits, currentPlan: "Pro", transactions: [] };
 
-export default function BillingPage() {
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Faturamento" subtitle="Controle planos, assinatura, créditos e histórico" actions={<Button>Comprar créditos</Button>} />
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card><p className="text-sm text-slate-400">Créditos disponíveis</p><p className="mt-3 text-4xl font-bold text-white">{workspace.credits}</p><Badge className="mt-4">Assinatura atual: Pro</Badge></Card>
-        {plans.map((plan) => <Card key={plan}><h2 className="font-semibold text-white">{plan.split(" — ")[0]}</h2><p className="mt-2 text-sm text-slate-400">{plan}</p><Button className="mt-5 w-full">Selecionar plano</Button></Card>)}
-      </div>
-      <Card><h2 className="font-semibold text-white">Histórico de consumo</h2><p className="mt-3 text-sm text-slate-400">Uso do agente Jéssica Helen: -1 crédito por resposta simulada.</p></Card>
-    </div>
-  );
+    const [current, transactions] = await Promise.all([
+      prisma.workspace.findUnique({
+        where: { id: workspace.id },
+        include: { billingPlan: { select: { name: true } } }
+      }),
+      prisma.creditTransaction.findMany({
+        where: { workspaceId: workspace.id },
+        orderBy: { createdAt: "desc" },
+        take: 20
+      })
+    ]);
+
+    return {
+      credits: current?.credits ?? workspace.credits,
+      currentPlan: current?.billingPlan?.name,
+      transactions: transactions.map((transaction) => ({
+        id: transaction.id,
+        amount: transaction.amount,
+        type: transaction.type,
+        description: transaction.description,
+        createdAt: transaction.createdAt.toISOString()
+      }))
+    };
+  } catch {
+    return { credits: mockWorkspace.credits, currentPlan: "Pro", transactions: [] };
+  }
+}
+
+export default async function BillingPage() {
+  const billing = await getBilling();
+  return <BillingClient {...billing} />;
 }
