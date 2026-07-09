@@ -81,6 +81,59 @@ function formatUploadDate(value?: string | null): string {
   }).format(new Date(value));
 }
 
+function getFileKey(file: File) {
+  return `${file.name}:${file.size}`;
+}
+
+function buildPreviewContent(file: File, extractedText: string): string {
+  return [
+    `Nome do arquivo: ${file.name}`,
+    `Tipo MIME: ${file.type || "desconhecido"}`,
+    `Tamanho: ${file.size} bytes`,
+    "",
+    "Conteúdo extraído:",
+    extractedText || "Nenhum texto foi extraído deste arquivo."
+  ].join("\n");
+}
+
+async function recognizeImageFile(file: File): Promise<string> {
+  let worker: Awaited<ReturnType<typeof import("tesseract.js")["createWorker"]>> | null = null;
+
+  try {
+    const { createWorker } = await import("tesseract.js");
+    worker = await createWorker("eng");
+    const result = await Promise.race([
+      worker.recognize(file),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("OCR_TIMEOUT")), 60_000);
+      })
+    ]);
+
+    return result.data.text.trim() || "Nenhum texto foi reconhecido na imagem via OCR.";
+  } catch (error) {
+    if (error instanceof Error && error.message === "OCR_TIMEOUT") {
+      return "OCR demorou mais que o limite seguro no navegador. O arquivo original ainda pode ser salvo e reprocessado depois.";
+    }
+
+    return "Não foi possível concluir o OCR desta imagem. O arquivo original ainda pode ser salvo no treinamento.";
+  } finally {
+    await worker?.terminate();
+  }
+}
+
+async function previewImageFile(file: File): Promise<TrainingPreview> {
+  const extractedText = await recognizeImageFile(file);
+
+  return {
+    title: file.name,
+    type: "Imagem",
+    content: buildPreviewContent(file, extractedText),
+    fileName: file.name,
+    fileMimeType: file.type || "application/octet-stream",
+    fileSizeBytes: file.size
+  };
+}
+
 export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
   const router = useRouter();
   const [profile, setProfile] = useState({
@@ -157,28 +210,43 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
     if (!files?.length) return;
 
     const selectedFiles = Array.from(files);
+    const imageFiles = selectedFiles.filter((file) => file.type.startsWith("image/"));
+    const serverPreviewFiles = selectedFiles.filter((file) => !file.type.startsWith("image/"));
     const formData = new FormData();
-    selectedFiles.forEach((file) => formData.append("files", file));
+    serverPreviewFiles.forEach((file) => formData.append("files", file));
 
     setLoading("preview-training");
     setError("");
-    const response = await fetch(`/api/agents/${agent.id}/trainings/upload?mode=preview`, {
-      method: "POST",
-      body: formData
-    });
-    setLoading("");
-    event.target.value = "";
 
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      setError(body?.error ?? "Não foi possível gerar a prévia dos arquivos.");
-      return;
+    try {
+      const [imagePreviews, serverPreviews] = await Promise.all([
+        Promise.all(imageFiles.map(previewImageFile)),
+        serverPreviewFiles.length > 0
+          ? fetch(`/api/agents/${agent.id}/trainings/upload?mode=preview`, {
+            method: "POST",
+            body: formData
+          }).then(async (response) => {
+            if (!response.ok) {
+              const body = await response.json().catch(() => null);
+              throw new Error(body?.error ?? "Não foi possível gerar a prévia dos arquivos.");
+            }
+
+            const body = await response.json() as { previews?: TrainingPreview[] };
+            return body.previews ?? [];
+          })
+          : Promise.resolve([])
+      ]);
+
+      const previewsByKey = new Map([...imagePreviews, ...serverPreviews].map((preview) => [`${preview.fileName}:${preview.fileSizeBytes}`, preview]));
+      setPendingTrainingFiles(selectedFiles);
+      setTrainingPreviews(selectedFiles.map((file) => previewsByKey.get(getFileKey(file))).filter((preview): preview is TrainingPreview => Boolean(preview)));
+      setPreviewOpen(true);
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : "Não foi possível gerar a prévia dos arquivos.");
+    } finally {
+      setLoading("");
+      event.target.value = "";
     }
-
-    const body = await response.json() as { previews?: TrainingPreview[] };
-    setPendingTrainingFiles(selectedFiles);
-    setTrainingPreviews(body.previews ?? []);
-    setPreviewOpen(true);
   }
 
   async function confirmTrainingUpload() {
@@ -186,6 +254,7 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
 
     const formData = new FormData();
     pendingTrainingFiles.forEach((file) => formData.append("files", file));
+    formData.append("previews", JSON.stringify(trainingPreviews));
 
     setLoading("upload-training");
     setError("");

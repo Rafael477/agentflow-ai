@@ -1,9 +1,6 @@
-import path from "node:path";
 import { put } from "@vercel/blob";
-import { createWorker } from "tesseract.js";
 
 const MAX_STORED_TEXT_LENGTH = 80_000;
-const OCR_TIMEOUT_MS = 25_000;
 
 export interface ParsedTrainingFile {
   title: string;
@@ -145,35 +142,10 @@ async function extractText(file: File, buffer: Buffer): Promise<string> {
   }
 
   if (file.type.startsWith("image/")) {
-    return extractImageText(buffer);
+    return "Imagem enviada para treinamento. A prévia com OCR é gerada no navegador antes da confirmação; se não houver prévia aprovada, reenvie o arquivo pela interface.";
   }
 
   return "Arquivo recebido. Extração automática de texto não disponível para este tipo.";
-}
-
-async function extractImageText(buffer: Buffer): Promise<string> {
-  const worker = await createWorker("eng", 1, {
-    cachePath: "/tmp/tesseract-cache",
-    langPath: path.join(process.cwd(), "node_modules", "@tesseract.js-data", "eng", "4.0.0_best_int")
-  });
-
-  try {
-    const result = await Promise.race([
-      worker.recognize(buffer),
-      new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("OCR_TIMEOUT")), OCR_TIMEOUT_MS);
-      })
-    ]);
-    return result.data.text.trim() || "Nenhum texto foi reconhecido na imagem via OCR.";
-  } catch (error) {
-    if (error instanceof Error && error.message === "OCR_TIMEOUT") {
-      return "OCR demorou mais que o limite seguro para produção. O arquivo original foi preservado e pode ser reprocessado depois.";
-    }
-
-    throw error;
-  } finally {
-    await worker.terminate();
-  }
 }
 
 async function buildTrainingFilePreview(file: File, buffer: Buffer): Promise<TrainingFilePreview> {
@@ -196,6 +168,18 @@ async function buildTrainingFilePreview(file: File, buffer: Buffer): Promise<Tra
   };
 }
 
+function appendStorageLine(content: string, storageUrl: string | null): string {
+  const storageLine = storageUrl
+    ? `Arquivo original: ${storageUrl}`
+    : "Arquivo original: não enviado ao storage externo porque BLOB_READ_WRITE_TOKEN não está configurado.";
+
+  return trimStoredText([
+    content,
+    "",
+    storageLine
+  ].join("\n"));
+}
+
 export async function previewTrainingFile(file: File): Promise<TrainingFilePreview> {
   const buffer = Buffer.from(await file.arrayBuffer());
   return buildTrainingFilePreview(file, buffer);
@@ -207,17 +191,22 @@ export async function parseTrainingFile(file: File): Promise<ParsedTrainingFile>
     buildTrainingFilePreview(file, buffer),
     uploadToBlob(file, buffer)
   ]);
-  const storageLine = storageUrl
-    ? `Arquivo original: ${storageUrl}`
-    : "Arquivo original: não enviado ao storage externo porque BLOB_READ_WRITE_TOKEN não está configurado.";
 
   return {
     ...preview,
-    content: trimStoredText([
-      preview.content,
-      "",
-      storageLine
-    ].join("\n")),
+    content: appendStorageLine(preview.content, storageUrl),
+    fileUrl: storageUrl,
+    uploadedAt: new Date()
+  };
+}
+
+export async function parseTrainingFileFromPreview(file: File, preview: TrainingFilePreview): Promise<ParsedTrainingFile> {
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const storageUrl = await uploadToBlob(file, buffer);
+
+  return {
+    ...preview,
+    content: appendStorageLine(preview.content, storageUrl),
     fileUrl: storageUrl,
     uploadedAt: new Date()
   };
