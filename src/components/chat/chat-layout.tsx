@@ -98,6 +98,7 @@ export function ChatLayout({
   const [liveConversations, setLiveConversations] = useState(conversations);
   const [selectedId, setSelectedId] = useState<string | undefined>(conversations[0]?.id);
   const [activeFilter, setActiveFilter] = useState<ConversationFilter>("all");
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -303,20 +304,24 @@ export function ChatLayout({
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
-          <Button variant="secondary" className="px-3"><SlidersHorizontal className="h-4 w-4" /></Button>
+          <Button variant={filtersOpen ? "primary" : "secondary"} className="px-3" onClick={() => setFiltersOpen((current) => !current)} title="Mostrar filtros">
+            <SlidersHorizontal className="h-4 w-4" />
+          </Button>
         </div>
-        <div className="my-4 flex gap-2 overflow-x-auto">
-          {(Object.keys(filterLabels) as ConversationFilter[]).map((filter) => (
-            <button
-              key={filter}
-              className={activeFilter === filter ? "rounded-full bg-primary px-3 py-1 text-sm font-semibold text-slate-950" : "rounded-full bg-white/5 px-3 py-1 text-sm text-slate-300"}
-              onClick={() => setActiveFilter(filter)}
-              type="button"
-            >
-              {filterLabels[filter]} <span className={activeFilter === filter ? "text-slate-800" : "text-slate-500"}>{filterCounts[filter]}</span>
-            </button>
-          ))}
-        </div>
+        {filtersOpen ? (
+          <div className="my-4 flex gap-2 overflow-x-auto">
+            {(Object.keys(filterLabels) as ConversationFilter[]).map((filter) => (
+              <button
+                key={filter}
+                className={activeFilter === filter ? "rounded-full bg-primary px-3 py-1 text-sm font-semibold text-slate-950" : "rounded-full bg-white/5 px-3 py-1 text-sm text-slate-300"}
+                onClick={() => setActiveFilter(filter)}
+                type="button"
+              >
+                {filterLabels[filter]} <span className={activeFilter === filter ? "text-slate-800" : "text-slate-500"}>{filterCounts[filter]}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <ConversationList conversations={filteredConversations} selectedId={selectedConversation?.id} onSelect={setSelectedId} getSla={getConversationSla} />
       </Card>
       <Card className="flex min-h-[660px] flex-col p-0">

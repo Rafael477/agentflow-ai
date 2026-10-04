@@ -20,13 +20,36 @@ export function ChannelSettingsModal({
 }) {
   const router = useRouter();
   const [slaThresholds, setSlaThresholds] = useState<SlaThresholds>(DEFAULT_SLA_THRESHOLDS);
+  const [activeTab, setActiveTab] = useState(tabs[0]);
+  const [featureSettings, setFeatureSettings] = useState({
+    typingIndicator: true,
+    autoRead: true,
+    audioProcessing: "Selecionar",
+    agentActivation: "Selecionar",
+    closingPolicy: "Selecionar"
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     setSlaThresholds(channel?.slaThresholds ?? DEFAULT_SLA_THRESHOLDS);
+    setActiveTab(tabs[0]);
+    setFeatureSettings({
+      typingIndicator: true,
+      autoRead: true,
+      audioProcessing: "Selecionar",
+      agentActivation: "Selecionar",
+      closingPolicy: "Selecionar"
+    });
     setError("");
   }, [channel]);
+
+  function toggleFeature(key: "typingIndicator" | "autoRead") {
+    setFeatureSettings((current) => ({
+      ...current,
+      [key]: !current[key]
+    }));
+  }
 
   function updateThreshold(field: keyof SlaThresholds, value: string) {
     setSlaThresholds((current) => ({
@@ -68,8 +91,13 @@ export function ChannelSettingsModal({
   return (
     <Modal open={open} onClose={onClose} title={channel ? `${channel.type} • ${channel.name}` : "Configurações do canal"}>
       <div className="mb-5 flex flex-wrap gap-2">
-        {tabs.map((tab, index) => (
-          <button key={tab} className={index === 0 ? "rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-slate-950" : "rounded-full bg-white/5 px-3 py-1.5 text-sm text-slate-300"}>
+        {tabs.map((tab) => (
+          <button
+            key={tab}
+            className={activeTab === tab ? "rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-slate-950" : "rounded-full bg-white/5 px-3 py-1.5 text-sm text-slate-300"}
+            onClick={() => setActiveTab(tab)}
+            type="button"
+          >
             {tab}
           </button>
         ))}
@@ -87,7 +115,32 @@ export function ChannelSettingsModal({
               <p className="font-medium text-white">{title}</p>
               <p className="text-sm text-slate-400">{description}</p>
             </div>
-            {type === "toggle" ? <div className="h-6 w-11 rounded-full bg-primary p-1"><div className="ml-auto h-4 w-4 rounded-full bg-slate-950" /></div> : <select className="rounded-lg border border-white/10 bg-panel px-3 py-2 text-sm text-white"><option>Selecionar</option></select>}
+            {type === "toggle" ? (
+              <button
+                className={title === "Indicador de Digitação" ? `h-6 w-11 rounded-full p-1 transition ${featureSettings.typingIndicator ? "bg-primary" : "bg-white/10"}` : `h-6 w-11 rounded-full p-1 transition ${featureSettings.autoRead ? "bg-primary" : "bg-white/10"}`}
+                onClick={() => toggleFeature(title === "Indicador de Digitação" ? "typingIndicator" : "autoRead")}
+                type="button"
+              >
+                <div className={title === "Indicador de Digitação" ? `h-4 w-4 rounded-full bg-slate-950 transition ${featureSettings.typingIndicator ? "ml-auto" : "ml-0"}` : `h-4 w-4 rounded-full bg-slate-950 transition ${featureSettings.autoRead ? "ml-auto" : "ml-0"}`} />
+              </button>
+            ) : (
+              <select
+                className="rounded-lg border border-white/10 bg-panel px-3 py-2 text-sm text-white"
+                value={
+                  title === "Processamento de Áudio"
+                    ? featureSettings.audioProcessing
+                    : title === "Ativação do Agente"
+                      ? featureSettings.agentActivation
+                      : featureSettings.closingPolicy
+                }
+                onChange={(event) => setFeatureSettings((current) => ({
+                  ...current,
+                  [title === "Processamento de Áudio" ? "audioProcessing" : title === "Ativação do Agente" ? "agentActivation" : "closingPolicy"]: event.target.value
+                }))}
+              >
+                <option>Selecionar</option>
+              </select>
+            )}
           </div>
         ))}
         <label className="block">

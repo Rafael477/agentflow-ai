@@ -19,7 +19,7 @@ export function TrainingList() {
               <Badge className="border-primary/30 bg-primary/10 text-primary">Treinado</Badge>
             </div>
           </div>
-          <Button variant="ghost" className="px-3">
+          <Button variant="ghost" className="px-3" disabled title="Ações adicionais em breve">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </div>
