@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -13,8 +14,9 @@ export function IntentEmptyState() {
           Intenções são comandos personalizados que acionam ações específicas em serviços externos, como solicitar segunda via de um boleto.
         </p>
         <div className="mt-6 flex justify-center gap-2">
-          <Button>Cadastrar primeira intenção</Button>
-          <Button variant="secondary">Importar</Button>
+          <Link href="/agents">
+            <Button title="Escolher agente para cadastrar intenção">Cadastrar primeira intenção</Button>
+          </Link>
         </div>
       </div>
     </div>

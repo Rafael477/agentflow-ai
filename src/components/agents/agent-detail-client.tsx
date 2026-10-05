@@ -45,7 +45,7 @@ interface TrainingPreview {
   fileSizeBytes: number;
 }
 
-const menu = ["Perfil", "Trabalho", "Treinamentos", "Intenções", "Integrações", "Servidores MCP", "Canais", "Configurações"];
+const menu = ["Perfil", "Treinamentos", "Intenções", "Integrações", "Canais"];
 const integrations = [
   ["ElevenLabs", "Permite que seu agente responda em áudio com voz humanizada.", Mic],
   ["Google Calendar", "Permite que o agente crie eventos, reuniões e agendamentos.", Calendar],
@@ -83,6 +83,10 @@ function formatUploadDate(value?: string | null): string {
 
 function getFileKey(file: File) {
   return `${file.name}:${file.size}`;
+}
+
+function getSectionId(label: string) {
+  return label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 function buildPreviewContent(file: File, extractedText: string): string {
@@ -406,7 +410,7 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
           </div>
           <div className="mt-6 space-y-1">
             {menu.map((item, index) => (
-              <a key={item} href={`#${item.toLowerCase().replaceAll("ç", "c").replaceAll("õ", "o")}`} className={index === 0 ? "flex rounded-lg bg-primary/15 px-3 py-2 text-sm font-medium text-primary" : "flex rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/10"}>{item}</a>
+              <a key={item} href={`#${getSectionId(item)}`} className={index === 0 ? "flex rounded-lg bg-primary/15 px-3 py-2 text-sm font-medium text-primary" : "flex rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/10"}>{item}</a>
             ))}
           </div>
           <Button className="mt-6 w-full" onClick={() => setTestOpen(true)}><TestTube2 className="mr-2 h-4 w-4" />Teste sua IA</Button>
@@ -485,7 +489,7 @@ export function AgentDetailClient({ agent }: { agent: AgentDetailView }) {
               {agent.intents.map((intent) => <div key={intent.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/5 p-4"><div><p className="font-semibold text-white">{intent.name}</p><p className="text-sm text-slate-400">{intent.description}</p><p className="mt-1 text-xs text-primary">{intent.triggers.join(", ") || "Sem gatilhos"}</p></div><Button variant="danger" className="px-3" onClick={() => setDeletingIntent(intent.id)}><Trash2 className="h-4 w-4" /></Button></div>)}
             </div>
           </Card>
-          <div id="integrações" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{integrations.map(([name, description, Icon]) => <IntegrationCard key={name} name={name} description={description} icon={Icon} />)}</div>
+          <div id="integracoes" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{integrations.map(([name, description, Icon]) => <IntegrationCard key={name} name={name} description={description} icon={Icon} />)}</div>
           <Card id="canais" className="text-center"><MessageCircle className="mx-auto h-10 w-10 text-primary" /><h2 className="mt-4 text-xl font-semibold text-white">Os canais mudaram de lugar!</h2><p className="mx-auto mt-2 max-w-xl text-sm text-slate-400">Agora você pode gerenciar todos os seus canais de atendimento em um único lugar, direto do menu principal.</p><div className="my-5 grid gap-3 md:grid-cols-2"><div className="rounded-xl bg-white/5 p-4 text-slate-400">Antes: Dentro de cada agente &gt; Canais</div><div className="rounded-xl bg-primary/10 p-4 text-primary">Agora: Menu Principal &gt; Canais</div></div><Link href="/channels"><Button>Ir para Canais</Button></Link></Card>
         </div>
       </div>
